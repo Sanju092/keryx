@@ -1,0 +1,9 @@
+{
+  "name": "Keryx — Personal Agentic Platform",
+  "short_name": "Keryx",
+  "description": "Mobile-first personal agentic platform with Hermes-style tools/skills/MCP/connectors, LLM Wiki, Obsidian vault sync, and configurable agent harness.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#FAF8F5",
+  "theme_color": "#C4552D"
+}

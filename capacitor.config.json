@@ -1,0 +1,26 @@
+{
+  "appId": "com.keryx.agentplatform",
+  "appName": "Keryx",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": [
+      "generativelanguage.googleapis.com",
+      "api.openai.com",
+      "api.anthropic.com",
+      "openrouter.ai",
+      "*"
+    ]
+  },
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "DEFAULT"
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_icon_config_sample",
+      "iconColor": "#C4552D"
+    }
+  }
+}

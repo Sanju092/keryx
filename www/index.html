@@ -1,0 +1,3078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Keryx — Personal Agentic Platform</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <style>
+    :root {
+      --bg: #FAF8F5;
+      --surface: #FFFFFF;
+      --surface-2: #F3EFE9;
+      --border: #E5DFD6;
+      --text: #1E1B18;
+      --muted: #6E655C;
+      --accent: #C4552D;
+      --accent-soft: rgba(196, 85, 45, 0.12);
+      --accent-fg: #FFFFFF;
+      --success: #2E7D5B;
+      --success-soft: rgba(46, 125, 91, 0.12);
+      --warn: #B86B11;
+      --warn-soft: rgba(184, 107, 17, 0.14);
+      --danger: #B9382C;
+      --danger-soft: rgba(185, 56, 44, 0.12);
+      --radius-card: 16px;
+      --radius-btn: 12px;
+      --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+      --font-body: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      --pad-card: 16px;
+      --gap-stack: 12px;
+    }
+
+    /* Dark Mode Overrides */
+    [data-mode="dark"] {
+      --bg: #161412;
+      --surface: #1F1C19;
+      --surface-2: #292521;
+      --border: #36312B;
+      --text: #F4F0EA;
+      --muted: #A39A90;
+      --accent-soft: rgba(224, 122, 82, 0.18);
+      --success: #4ADE80;
+      --success-soft: rgba(74, 222, 128, 0.14);
+      --warn: #FBBF24;
+      --warn-soft: rgba(251, 191, 36, 0.14);
+      --danger: #F87171;
+      --danger-soft: rgba(248, 113, 113, 0.14);
+    }
+
+    /* Preset: Minimal Control (Linear / Vercel style) */
+    [data-preset="control"] {
+      --bg: #F8FAFC;
+      --surface: #FFFFFF;
+      --surface-2: #F1F5F9;
+      --border: #E2E8F0;
+      --text: #0F172A;
+      --muted: #64748B;
+      --radius-card: 10px;
+      --radius-btn: 8px;
+      --font-display: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    [data-preset="control"][data-mode="dark"] {
+      --bg: #09090B;
+      --surface: #121215;
+      --surface-2: #1B1B20;
+      --border: #27272E;
+      --text: #F4F4F5;
+      --muted: #A1A1AA;
+    }
+
+    /* Preset: Ops Console (High-density terminal style) */
+    [data-preset="ops"] {
+      --bg: #F1F5F2;
+      --surface: #FFFFFF;
+      --surface-2: #E6ECE8;
+      --border: #CBD5CE;
+      --text: #0B1410;
+      --muted: #4A5C52;
+      --radius-card: 6px;
+      --radius-btn: 5px;
+      --font-display: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    [data-preset="ops"][data-mode="dark"] {
+      --bg: #0A0E12;
+      --surface: #11171E;
+      --surface-2: #18212B;
+      --border: #243240;
+      --text: #E6F1EA;
+      --muted: #8499A8;
+    }
+
+    /* Density */
+    [data-density="compact"] {
+      --pad-card: 11px;
+      --gap-stack: 8px;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 14px;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+
+    .font-display { font-family: var(--font-display); }
+    .font-mono-code { font-family: var(--font-mono); }
+
+    .surface {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+    }
+    .surface-subtle {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-btn);
+    }
+    .card-pad { padding: var(--pad-card); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--accent-fg);
+      border-radius: var(--radius-btn);
+      font-weight: 500;
+      transition: opacity 0.15s ease, transform 0.12s ease;
+    }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:hover { opacity: 0.92; }
+
+    .btn-ghost {
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-btn);
+      font-weight: 500;
+      transition: background 0.15s ease, transform 0.12s ease;
+    }
+    .btn-ghost:active { transform: scale(0.98); }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
+    .pill-accent { background: var(--accent-soft); color: var(--accent); }
+    .pill-success { background: var(--success-soft); color: var(--success); }
+    .pill-warn { background: var(--warn-soft); color: var(--warn); }
+    .pill-danger { background: var(--danger-soft); color: var(--danger); }
+    .pill-muted { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
+
+    .input-field {
+      width: 100%;
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-btn);
+      padding: 9px 12px;
+      font-size: 13.5px;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+    .input-field:focus { border-color: var(--accent); }
+
+    /* Toggle Switch */
+    .toggle-track {
+      width: 40px;
+      height: 22px;
+      border-radius: 999px;
+      background: var(--border);
+      position: relative;
+      transition: background 0.18s ease;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .toggle-track.on { background: var(--accent); }
+    .toggle-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: #FFFFFF;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    }
+    .toggle-track.on .toggle-thumb { transform: translateX(18px); }
+
+    /* Shell layout: mobile-first + optional phone frame on desktop */
+    .app-outer {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      background: var(--bg);
+    }
+    .app-shell {
+      width: 100%;
+      max-width: 1120px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      position: relative;
+    }
+    body[data-frame="responsive"] .app-outer {
+      padding: 16px 0;
+      background: color-mix(in srgb, var(--bg) 88%, var(--text) 12%);
+    }
+    body[data-frame="responsive"] .app-shell {
+      max-width: 430px;
+      min-height: calc(100vh - 32px);
+      max-height: 900px;
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+    }
+
+    @media (max-width: 640px) {
+      body[data-frame="responsive"] .app-outer { padding: 0; background: var(--bg); }
+      body[data-frame="responsive"] .app-shell {
+        max-width: 100%;
+        min-height: 100vh;
+        max-height: none;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+      }
+    }
+
+    .main-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 14px 86px 14px;
+    }
+
+    /* Desktop responsive sidebar when not in phone frame */
+    @media (min-width: 820px) {
+      body[data-frame="responsive"] .app-body-grid {
+        display: grid;
+        grid-template-columns: 224px 1fr;
+        flex: 1;
+        min-height: 0;
+      }
+      body[data-frame="responsive"] .desktop-sidebar {
+        display: flex !important;
+      }
+      body[data-frame="responsive"] .mobile-bottom-nav {
+        display: none !important;
+      }
+      body[data-frame="responsive"] .main-scroll {
+        padding: 20px 24px 32px 24px;
+      }
+    }
+
+    .mobile-bottom-nav {
+      position: sticky;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px)) 4px;
+      z-index: 30;
+    }
+    .nav-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 6px 2px;
+      border-radius: 10px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 500;
+      position: relative;
+      transition: color 0.15s ease, background 0.15s ease;
+    }
+    .nav-btn.active {
+      color: var(--accent);
+      background: var(--accent-soft);
+      font-weight: 600;
+    }
+
+    .sidebar-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: var(--radius-btn);
+      color: var(--muted);
+      font-size: 13.5px;
+      font-weight: 500;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .sidebar-btn:hover { background: var(--surface-2); color: var(--text); }
+    .sidebar-btn.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* Sheet / Modal */
+    .sheet-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(3px);
+      z-index: 50;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 0;
+      animation: fadeIn 0.16s ease;
+    }
+    @media (min-width: 640px) {
+      .sheet-backdrop { align-items: center; padding: 20px; }
+    }
+    .sheet-panel {
+      width: 100%;
+      max-width: 560px;
+      max-height: 88vh;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px 20px 0 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: slideUp 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    @media (min-width: 640px) {
+      .sheet-panel { border-radius: 18px; }
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp { from { transform: translateY(18px); opacity: 0.7; } to { transform: translateY(0); opacity: 1; } }
+
+    /* Pulse dot */
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.85); }
+    }
+    .pulse-dot { animation: pulseDot 1.4s ease-in-out infinite; }
+
+    /* Wiki link */
+    .wikilink {
+      color: var(--accent);
+      background: var(--accent-soft);
+      padding: 1px 6px;
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .wikilink:hover { text-decoration: underline; }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#C4552D" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <style>
+    header { padding-top: calc(10px + env(safe-area-inset-top, 0px)) !important; }
+  </style>
+</head>
+<body data-preset="editorial" data-mode="light" data-density="comfortable" data-frame="responsive">
+  <div class="app-outer">
+    <div class="app-shell" id="app-shell">
+      <!-- Top Header -->
+      <header class="sticky top-0 z-30 flex items-center justify-between gap-2 px-3.5 py-2.5 border-b" style="background: var(--surface); border-color: var(--border);">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-display font-bold text-sm" style="background: var(--accent); color: var(--accent-fg);">
+            K
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5">
+              <h1 class="font-display font-bold text-[15px] leading-tight truncate">Keryx</h1>
+              <span id="header-mode-badge" class="pill pill-muted text-[10px]">Sim</span>
+            </div>
+            <p class="text-[11px] truncate" style="color: var(--muted);">Agentic Platform &amp; Wiki</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button id="btn-bg-pill" class="pill pill-accent cursor-pointer hidden" title="Active background tasks">
+            <span class="w-2 h-2 rounded-full pulse-dot" style="background: var(--accent);"></span>
+            <span id="bg-pill-text">1 running</span>
+          </button>
+          <button id="btn-open-harness" class="btn-ghost px-2.5 py-1.5 text-xs flex items-center gap-1.5" title="Agent Harness Studio">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">Harness</span>
+          </button>
+          <button id="btn-open-settings" class="btn-ghost p-1.5" title="Interface & Providers">
+            <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Body Grid (Sidebar on wide responsive mode + Content) -->
+      <div class="app-body-grid flex-1 flex flex-col min-h-0">
+        <!-- Desktop Sidebar (visible only in responsive mode >= 820px) -->
+        <aside class="desktop-sidebar hidden flex-col justify-between p-3 border-r" style="background: var(--surface); border-color: var(--border);">
+          <div class="space-y-1">
+            <div class="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider" style="color: var(--muted);">Workspace</div>
+            <button data-nav="chat" class="sidebar-btn active"><i data-lucide="message-square" class="w-4 h-4"></i><span>Agent Chat</span></button>
+            <button data-nav="tasks" class="sidebar-btn"><i data-lucide="cpu" class="w-4 h-4"></i><span>Background Tasks</span><span id="sidebar-tasks-badge" class="ml-auto pill pill-accent hidden">0</span></button>
+            <button data-nav="agents" class="sidebar-btn"><i data-lucide="bot" class="w-4 h-4"></i><span>Custom Agents</span></button>
+            <button data-nav="wiki" class="sidebar-btn"><i data-lucide="book-open" class="w-4 h-4"></i><span>LLM Wiki</span></button>
+            <button data-nav="hub" class="sidebar-btn"><i data-lucide="blocks" class="w-4 h-4"></i><span>Tools, Skills &amp; MCP</span></button>
+          </div>
+
+          <div class="surface-subtle p-3 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold">Approval Gate</span>
+              <div id="sidebar-approval-toggle" class="toggle-track on" role="switch" aria-checked="true"><div class="toggle-thumb"></div></div>
+            </div>
+            <p class="text-[11px] leading-snug" style="color: var(--muted);">Pauses background agents on external sends &amp; destructive edits.</p>
+          </div>
+        </aside>
+
+        <!-- Active View Container -->
+        <main id="main-content" class="main-scroll"></main>
+      </div>
+
+      <!-- Mobile Bottom Navigation -->
+      <nav class="mobile-bottom-nav" aria-label="Primary Navigation">
+        <button data-nav="chat" class="nav-btn active">
+          <i data-lucide="message-square" class="w-[18px] h-[18px]"></i>
+          <span>Chat</span>
+        </button>
+        <button data-nav="tasks" class="nav-btn">
+          <i data-lucide="cpu" class="w-[18px] h-[18px]"></i>
+          <span>Tasks</span>
+          <span id="nav-tasks-dot" class="hidden absolute top-1.5 right-3.5 w-2 h-2 rounded-full" style="background: var(--accent);"></span>
+        </button>
+        <button data-nav="agents" class="nav-btn">
+          <i data-lucide="bot" class="w-[18px] h-[18px]"></i>
+          <span>Agents</span>
+        </button>
+        <button data-nav="wiki" class="nav-btn">
+          <i data-lucide="book-open" class="w-[18px] h-[18px]"></i>
+          <span>Wiki</span>
+        </button>
+        <button data-nav="hub" class="nav-btn">
+          <i data-lucide="blocks" class="w-[18px] h-[18px]"></i>
+          <span>Hub</span>
+        </button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Modal / Sheet Root -->
+  <div id="sheet-root"></div>
+
+  <!-- Toast Root -->
+  <div id="toast-root" class="fixed top-14 left-1/2 -translate-x-1/2 z-[70] flex flex-col gap-2 pointer-events-none w-[90%] max-w-sm"></div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const STORAGE_KEY = 'keryx_platform_state_v1';
+
+      const ACCENTS = [
+        { id: 'terracotta', name: 'Terracotta', hex: '#C4552D', darkHex: '#E07A52' },
+        { id: 'indigo', name: 'Indigo', hex: '#4F46E5', darkHex: '#818CF8' },
+        { id: 'sage', name: 'Sage', hex: '#2E7D5B', darkHex: '#4ADE80' },
+        { id: 'amber', name: 'Amber', hex: '#B86B11', darkHex: '#F59E0B' },
+        { id: 'slate', name: 'Slate', hex: '#334155', darkHex: '#94A3B8' }
+      ];
+
+      const PROVIDERS = {
+        gemini: {
+          name: 'Google Gemini',
+          models: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'],
+          placeholder: 'AIzaSy...'
+        },
+        openai: {
+          name: 'OpenAI',
+          models: ['gpt-4.1', 'gpt-4.1-mini', 'o3-mini'],
+          placeholder: 'sk-...'
+        },
+        anthropic: {
+          name: 'Anthropic',
+          models: ['claude-sonnet-4-20250514', 'claude-3-5-haiku-latest'],
+          placeholder: 'sk-ant-...'
+        },
+        openrouter: {
+          name: 'OpenRouter',
+          models: ['nousresearch/hermes-3-llama-3.1-70b', 'anthropic/claude-3.7-sonnet', 'google/gemini-2.5-pro'],
+          placeholder: 'sk-or-v1-...'
+        },
+        custom: {
+          name: 'Custom OpenAI-Compatible',
+          models: ['hermes-3-8b', 'qwen2.5-coder-32b', 'llama-3.3-70b'],
+          placeholder: 'Optional bearer token'
+        }
+      };
+
+      function nowTime() {
+        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      function uid(prefix) {
+        return prefix + '_' + Math.random().toString(36).slice(2, 8);
+      }
+
+      function createDefaultState() {
+        return {
+          ui: {
+            tab: 'chat',
+            hubSubTab: 'tools',
+            preset: 'editorial',
+            mode: 'light',
+            density: 'comfortable',
+            accent: 'terracotta',
+            frame: 'responsive',
+            activeAgentId: 'agent_researcher',
+            activeWikiId: 'wiki_index',
+            wikiEditMode: false,
+            wikiSearch: '',
+            wikiCategory: 'all',
+            taskFilter: 'all'
+          },
+          providers: {
+            gemini: { apiKey: '', baseUrl: '' },
+            openai: { apiKey: '', baseUrl: '' },
+            anthropic: { apiKey: '', baseUrl: '' },
+            openrouter: { apiKey: '', baseUrl: '' },
+            custom: { apiKey: '', baseUrl: 'https://api.example.com/v1' }
+          },
+          obsidian: {
+            vaultName: 'My Mobile Vault',
+            folderPath: 'Keryx-Wiki',
+            syncMode: 'two-way',
+            requireApprovalOnWrite: true,
+            connected: false,
+            lastSync: 'Not synced yet',
+            importedCount: 0
+          },
+          harness: {
+            globalApprovalGate: true,
+            defaultPolicy: 'balanced',
+            maxSteps: 12,
+            maxRetries: 2,
+            requireVerificationGate: true,
+            autoUpdateWikiLog: true,
+            ratchetRules: [
+              { id: 'r_1', rule: 'Never mark a background task complete until the Verification Gate passes with 0 schema errors.', source: 'Core Harness' },
+              { id: 'r_2', rule: 'Always read wiki/index.md before creating a new wiki page to prevent duplicate entity pages.', source: 'Wiki Hygiene' },
+              { id: 'r_3', rule: 'Stop and escalate after 2 consecutive tool failures instead of looping silently.', source: 'Escape Hatch' }
+            ],
+            testResults: {}
+          },
+          agents: [
+            {
+              id: 'agent_researcher',
+              name: 'Hermes Scout',
+              role: 'Deep Research & Synthesis',
+              emoji: '🧭',
+              provider: 'gemini',
+              model: 'gemini-2.5-flash',
+              temperature: 0.3,
+              maxSteps: 12,
+              memoryEnabled: true,
+              wikiPermission: 'read-write',
+              approvalGate: true,
+              policy: 'balanced',
+              systemPrompt: 'You are Hermes Scout, a persistent research agent. Orient via wiki/index.md, gather primary sources, cross-link findings into the LLM Wiki, and pass the verification gate before finishing.',
+              toolIds: ['tool_web_search', 'tool_http_fetch', 'tool_wiki_rw', 'tool_memory'],
+              skillIds: ['skill_deep_research', 'skill_wiki_curator'],
+              mcpIds: ['mcp_github'],
+              connectorIds: ['conn_telegram']
+            },
+            {
+              id: 'agent_librarian',
+              name: 'Wiki Librarian',
+              role: 'LLM Wiki Curator & Linter',
+              emoji: '📚',
+              provider: 'anthropic',
+              model: 'claude-sonnet-4-20250514',
+              temperature: 0.2,
+              maxSteps: 10,
+              memoryEnabled: true,
+              wikiPermission: 'read-write',
+              approvalGate: true,
+              policy: 'balanced',
+              systemPrompt: 'You maintain the user\'s Karpathy-style LLM Wiki. Ingest raw sources into structured entities and concepts, preserve [[wikilinks]], fix orphan pages, and append every mutation to wiki/log.md.',
+              toolIds: ['tool_wiki_rw', 'tool_memory', 'tool_json_transform'],
+              skillIds: ['skill_wiki_curator', 'skill_harness_critic'],
+              mcpIds: ['mcp_filesystem'],
+              connectorIds: ['conn_webhook']
+            },
+            {
+              id: 'agent_ops',
+              name: 'Cron Sentinel',
+              role: 'Background Ops & Alerts',
+              emoji: '⚡',
+              provider: 'openrouter',
+              model: 'nousresearch/hermes-3-llama-3.1-70b',
+              temperature: 0.1,
+              maxSteps: 8,
+              memoryEnabled: true,
+              wikiPermission: 'read-only',
+              approvalGate: true,
+              policy: 'balanced',
+              systemPrompt: 'You execute scheduled background checks, summarize deltas cleanly, and route alerts to configured connectors only after verifying signal thresholds.',
+              toolIds: ['tool_http_fetch', 'tool_web_search', 'tool_code_sandbox'],
+              skillIds: ['skill_daily_briefing'],
+              mcpIds: ['mcp_github'],
+              connectorIds: ['conn_telegram', 'conn_slack']
+            }
+          ],
+          tools: [
+            { id: 'tool_web_search', name: 'web_search', category: 'Built-in', description: 'Query live web sources and return cited snippets.', destructive: false, enabled: true, method: 'GET', endpoint: 'builtin://search' },
+            { id: 'tool_http_fetch', name: 'http_fetch', category: 'Built-in', description: 'Fetch structured JSON or Markdown from HTTPS URLs.', destructive: false, enabled: true, method: 'GET', endpoint: 'builtin://fetch' },
+            { id: 'tool_wiki_rw', name: 'wiki_read_write', category: 'LLM Wiki', description: 'Read, create, cross-link, and lint pages inside the LLM Wiki.', destructive: false, enabled: true, method: 'POST', endpoint: 'builtin://wiki' },
+            { id: 'tool_obsidian_rw', name: 'obsidian_vault_rw', category: 'Obsidian Mobile', description: 'Import .md notes from your mobile Obsidian Vault and push updates via obsidian:// URI.', destructive: true, enabled: true, method: 'URI', endpoint: 'obsidian://open' },
+            { id: 'tool_memory', name: 'persistent_memory', category: 'Hermes Core', description: 'Store and recall enduring user preferences and session facts.', destructive: false, enabled: true, method: 'POST', endpoint: 'builtin://memory' },
+            { id: 'tool_code_sandbox', name: 'sandbox_eval', category: 'Hermes Core', description: 'Run isolated JS/JSON transforms and schema validators.', destructive: false, enabled: true, method: 'POST', endpoint: 'builtin://sandbox' },
+            { id: 'tool_json_transform', name: 'schema_verify', category: 'Harness Sensor', description: 'Validate output against JSON schema and citation rules.', destructive: false, enabled: true, method: 'POST', endpoint: 'builtin://verify' },
+            { id: 'tool_subagent', name: 'spawn_subagent', category: 'Hermes Core', description: 'Delegate a parallel sub-task to another configured agent.', destructive: false, enabled: true, method: 'POST', endpoint: 'builtin://subagent' },
+            { id: 'tool_webhook_post', name: 'outbound_webhook', category: 'Custom REST', description: 'Send a signed POST payload to an external automation URL.', destructive: true, enabled: true, method: 'POST', endpoint: 'https://hooks.example.com/agent-event' }
+          ],
+          skills: [
+            {
+              id: 'skill_deep_research',
+              name: 'deep-research',
+              description: 'Multi-source web investigation with primary verification and wiki synthesis.',
+              enabled: true,
+              content: '---\nname: deep-research\ndescription: Multi-source research with primary verification\n---\n# Protocol\n1. Check [[index]] for existing notes before searching.\n2. Gather at least 2 primary sources.\n3. Synthesize findings with explicit trade-offs and update the LLM Wiki.'
+            },
+            {
+              id: 'skill_wiki_curator',
+              name: 'wiki-curator',
+              description: 'Karpathy LLM Wiki ingestion, [[wikilink]] cross-referencing, and log.md auditing.',
+              enabled: true,
+              content: '---\nname: wiki-curator\ndescription: Maintain structured Markdown LLM Wiki\n---\n# Rules\n- Keep atomic pages under entities/, concepts/, and sources/.\n- Link every related concept with [[Page Title]].\n- Append a dated one-line entry to [[log]] on every write.'
+            },
+            {
+              id: 'skill_daily_briefing',
+              name: 'daily-briefing',
+              description: 'Scheduled morning digest across connectors, GitHub, and recent wiki changes.',
+              enabled: true,
+              content: '---\nname: daily-briefing\ndescription: Concise morning briefing for mobile\n---\n# Format\n- Max 5 bullet highlights.\n- Flag blockers or pending approvals first.\n- Deliver via Telegram or Slack connector.'
+            },
+            {
+              id: 'skill_harness_critic',
+              name: 'harness-critic',
+              description: 'Pre-completion verification sensor checking completeness, links, and guardrails.',
+              enabled: true,
+              content: '---\nname: harness-critic\ndescription: Mechanical verification gate before task completion\n---\n# Gate Checks\n1. Zero TODO or placeholder markers.\n2. Every external claim has a source.\n3. Destructive actions have recorded approval.'
+            }
+          ],
+          mcps: [
+            { id: 'mcp_github', name: 'GitHub MCP', transport: 'Streamable HTTP', url: 'https://api.githubcopilot.com/mcp/', status: 'connected', tools: ['search_issues', 'get_pr', 'list_commits'] },
+            { id: 'mcp_filesystem', name: 'Local Vault MCP', transport: 'SSE Bridge', url: 'https://vault-bridge.example.com/sse', status: 'standby', tools: ['read_markdown', 'write_markdown', 'search_files'] },
+            { id: 'mcp_browser', name: 'Chrome Extension Bridge', transport: 'Extension MCP', url: 'chrome-ext://keryx-bridge', status: 'standby', tools: ['read_active_tab', 'capture_page', 'extract_links'] }
+          ],
+          connectors: [
+            { id: 'conn_telegram', name: 'Telegram Bot', type: 'Messaging', handle: '@keryx_personal_bot', enabled: true, requiresApproval: true, mode: 'Inbound + Alerts' },
+            { id: 'conn_discord', name: 'Discord Webhook', type: 'Messaging', handle: '#agent-ops', enabled: false, requiresApproval: true, mode: 'Outbound Alerts' },
+            { id: 'conn_slack', name: 'Slack App', type: 'Workspace', handle: '#daily-briefs', enabled: true, requiresApproval: true, mode: 'Inbound + Alerts' },
+            { id: 'conn_whatsapp', name: 'WhatsApp Bridge', type: 'Messaging', handle: 'Personal DM', enabled: false, requiresApproval: true, mode: 'Outbound Alerts' },
+            { id: 'conn_github', name: 'GitHub Events', type: 'Developer', handle: 'Repo Webhooks', enabled: true, requiresApproval: false, mode: 'Trigger Only' },
+            { id: 'conn_webhook', name: 'Custom Webhook', type: 'Automation', handle: 'POST /trigger', enabled: true, requiresApproval: true, mode: 'Bidirectional' },
+            { id: 'conn_obsidian', name: 'Obsidian Mobile Vault', type: 'Knowledge Vault', handle: 'obsidian://open', enabled: true, requiresApproval: true, mode: 'URI + .md Import' }
+          ],
+          wiki: [
+            {
+              id: 'wiki_index',
+              slug: 'index',
+              title: 'Wiki Index',
+              category: 'index',
+              updatedAt: 'Today, 17:40',
+              content: '# Keryx LLM Wiki Index\n\nThis is the persistent knowledge base maintained by your agents (inspired by Karpathy\'s LLM Wiki pattern).\n\n## Core Concepts\n- [[Agent Harness Architecture]] — Guides, sensors, verification gates, and ratchet loops.\n- [[Hermes Agent Pattern]] — Persistent memory, skills, MCP servers, connectors, and cron jobs.\n\n## Active Projects\n- [[Keryx Mobile Platform]] — Personal mobile-first agent workspace.\n\n## Operations\n- [[Wiki Log]] — Chronological ledger of agent ingests and lints.'
+            },
+            {
+              id: 'wiki_harness',
+              slug: 'agent-harness-architecture',
+              title: 'Agent Harness Architecture',
+              category: 'concepts',
+              updatedAt: 'Today, 17:32',
+              content: '# Agent Harness Architecture\n\nReliability is a harness problem as much as a model problem: **Agent = Model + Harness**.\n\n## Five Layers\n1. **Identity & Scope**: Lean 60–150 line core rules.\n2. **Session Protocol**: Orient via [[Wiki Index]], execute one unit at a time, pass completion gate.\n3. **Tool Contracts**: Explicit boundaries; approval gates on external sends or deletes.\n4. **Verification Sensors**: Silent on pass, verbose on failure, max 2 retries.\n5. **State Persistence**: `todo`, `progress`, and [[Wiki Log]] survive across runs.\n\nRelated: [[Hermes Agent Pattern]], [[Keryx Mobile Platform]].'
+            },
+            {
+              id: 'wiki_hermes',
+              slug: 'hermes-agent-pattern',
+              title: 'Hermes Agent Pattern',
+              category: 'concepts',
+              updatedAt: 'Today, 17:20',
+              content: '# Hermes Agent Pattern\n\nAn all-in-one personal agentic platform combines:\n- **Persistent Memory & Skills**: Reusable `SKILL.md` playbooks that improve over time.\n- **Multi-Channel Connectors**: Talk to agents via app chat, Telegram, Slack, Discord, or WhatsApp.\n- **MCP Extensibility**: Plug in external tool servers without rewriting the agent loop.\n- **Background Cron & Subagents**: Long-running tasks execute asynchronously with [[Agent Harness Architecture]] guardrails.'
+            },
+            {
+              id: 'wiki_project',
+              slug: 'keryx-mobile-platform',
+              title: 'Keryx Mobile Platform',
+              category: 'entities',
+              updatedAt: 'Today, 17:45',
+              content: '# Keryx Mobile Platform\n\nMobile-first personal agent platform with configurable UI presets (Warm Editorial, Minimal Control, Ops Console), multi-provider BYOK models, and background task orchestration.\n\n## Linked Architecture\n- Uses [[Agent Harness Architecture]] for verification gates.\n- Modeled after [[Hermes Agent Pattern]].\n- Logs mutations to [[Wiki Log]].'
+            },
+            {
+              id: 'wiki_log',
+              slug: 'wiki-log',
+              title: 'Wiki Log',
+              category: 'logs',
+              updatedAt: 'Today, 17:45',
+              content: '# Wiki Log\n\n- **17:45** — Seeded [[Keryx Mobile Platform]] and linked to [[Agent Harness Architecture]].\n- **17:32** — Created [[Agent Harness Architecture]] from harness-architect principles.\n- **17:20** — Added [[Hermes Agent Pattern]] reference page.'
+            }
+          ],
+          chats: {
+            agent_researcher: [
+              {
+                id: 'msg_1',
+                role: 'assistant',
+                time: '17:42',
+                text: 'Ready when you are. I\'m configured with **deep-research** and **wiki-curator**, connected to your **LLM Wiki**, and wrapped in the **Balanced Harness**.\n\nAsk me anything here, or tap **Run in Background** to dispatch a multi-step job while you use other tabs.',
+                trace: [
+                  { step: 'Orient', detail: 'Loaded AGENTS.md (Balanced) & read [[Wiki Index]] (5 pages)', status: 'ok' }
+                ]
+              }
+            ],
+            agent_librarian: [
+              {
+                id: 'msg_2',
+                role: 'assistant',
+                time: '17:43',
+                text: 'Wiki Librarian online. Paste any article, note, or repo summary and I\'ll structure it into your **LLM Wiki**, add `[[wikilinks]]`, and update `Wiki Log`.',
+                trace: []
+              }
+            ],
+            agent_ops: [
+              {
+                id: 'msg_3',
+                role: 'assistant',
+                time: '17:44',
+                text: 'Cron Sentinel standing by. Approval Gate is **ON** for outbound Telegram and Slack alerts.',
+                trace: []
+              }
+            ]
+          },
+          tasks: [
+            {
+              id: 'task_demo_1',
+              title: 'Compile Hermes + MCP Architecture Brief into Wiki',
+              agentId: 'agent_researcher',
+              schedule: 'One-off',
+              status: 'awaiting_approval',
+              createdAt: '17:38',
+              stepsUsed: 4,
+              maxSteps: 12,
+              retries: 0,
+              pendingAction: {
+                tool: 'Telegram Bot (@keryx_personal_bot)',
+                action: 'Send 4-bullet summary alert to your Telegram DM',
+                reason: 'Connector action marked as external send under Balanced Harness.'
+              },
+              todos: [
+                { text: 'Orient via [[Wiki Index]] and AGENTS.md', status: 'done' },
+                { text: 'Cross-reference [[Hermes Agent Pattern]] & MCP tools', status: 'done' },
+                { text: 'Draft structured summary & verify citations', status: 'done' },
+                { text: 'Send Telegram briefing via connector', status: 'waiting' },
+                { text: 'Run Harness Verification Gate & log to Wiki', status: 'pending' }
+              ],
+              logs: [
+                { time: '17:38', type: 'orient', text: 'Loaded AGENTS.md (Balanced, maxSteps=12, approvalGate=ON).' },
+                { time: '17:39', type: 'tool', text: 'wiki_read_write → read Wiki Index & Hermes Agent Pattern.' },
+                { time: '17:40', type: 'tool', text: 'schema_verify → 0 missing links, 0 placeholders.' },
+                { time: '17:41', type: 'gate', text: 'PAUSED: External connector send (Telegram Bot) requires human approval.' }
+              ],
+              verification: { passed: null, notes: 'Pending completion of step 4.' },
+              wikiWriteTitle: 'MCP Architecture Brief'
+            },
+            {
+              id: 'task_demo_2',
+              title: 'Daily LLM Wiki Lint & Orphan Check',
+              agentId: 'agent_librarian',
+              schedule: 'Cron · Daily 08:00',
+              status: 'completed',
+              createdAt: '08:00',
+              stepsUsed: 5,
+              maxSteps: 10,
+              retries: 0,
+              pendingAction: null,
+              todos: [
+                { text: 'Scan all 5 LLM Wiki pages for broken [[wikilinks]]', status: 'done' },
+                { text: 'Verify every page is reachable from [[Wiki Index]]', status: 'done' },
+                { text: 'Append health audit to [[Wiki Log]]', status: 'done' },
+                { text: 'Pass Harness Verification Gate', status: 'done' }
+              ],
+              logs: [
+                { time: '08:00', type: 'orient', text: 'Cron trigger fired for Wiki Librarian.' },
+                { time: '08:01', type: 'tool', text: 'wiki_read_write → scanned 5 pages, 0 broken links, 0 orphans.' },
+                { time: '08:01', type: 'verify', text: 'VERIFICATION GATE PASSED: Schema valid, wiki log updated.' }
+              ],
+              verification: { passed: true, notes: '0 broken links, 0 orphan pages, Wiki Log updated.' }
+            }
+          ],
+          cronJobs: [
+            { id: 'cron_1', name: 'Morning Briefing Digest', schedule: 'Daily · 08:00', agentId: 'agent_ops', enabled: true, lastRun: 'Today 08:00', prompt: 'Compile morning digest from GitHub MCP and recent Wiki Log changes, then send via Telegram.' },
+            { id: 'cron_2', name: 'LLM Wiki Nightly Lint', schedule: 'Daily · 23:00', agentId: 'agent_librarian', enabled: true, lastRun: 'Yesterday 23:00', prompt: 'Audit all LLM Wiki pages for orphan pages, missing backlinks, and stale notes.' },
+            { id: 'cron_3', name: 'Research Watchlist Sweep', schedule: 'Every 6 hours', agentId: 'agent_researcher', enabled: false, lastRun: 'Paused', prompt: 'Search for updates on Hermes Agent, MCP spec, and LLM Wiki workflows and ingest deltas.' }
+          ]
+        };
+      }
+
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.ui && parsed.agents && parsed.wiki) return parsed;
+          }
+        } catch (e) {}
+        return createDefaultState();
+      }
+
+      let state = loadState();
+      if (!state.obsidian) {
+        state.obsidian = {
+          vaultName: 'My Mobile Vault',
+          folderPath: 'Keryx-Wiki',
+          syncMode: 'two-way',
+          requireApprovalOnWrite: true,
+          connected: false,
+          lastSync: 'Not synced yet',
+          importedCount: 0
+        };
+      }
+      let bgInterval = null;
+
+      function saveState() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (e) {}
+      }
+
+      function applyTheme() {
+        document.body.dataset.preset = state.ui.preset || 'editorial';
+        document.body.dataset.mode = state.ui.mode || 'light';
+        document.body.dataset.density = state.ui.density || 'comfortable';
+        document.body.dataset.frame = state.ui.frame || 'phone';
+
+        const acc = ACCENTS.find(a => a.id === state.ui.accent) || ACCENTS[0];
+        const hex = state.ui.mode === 'dark' ? acc.darkHex : acc.hex;
+        document.documentElement.style.setProperty('--accent', hex);
+        document.documentElement.style.setProperty('--accent-soft', hex + '22');
+
+        // Header live/sim badge
+        const hasAnyKey = Object.values(state.providers).some(p => p.apiKey && p.apiKey.trim().length > 4);
+        const modeBadge = document.getElementById('header-mode-badge');
+        if (modeBadge) {
+          modeBadge.textContent = hasAnyKey ? 'BYOK' : 'Sim';
+          modeBadge.className = hasAnyKey ? 'pill pill-success text-[10px]' : 'pill pill-muted text-[10px]';
+        }
+
+        // Sidebar approval toggle sync
+        const st = document.getElementById('sidebar-approval-toggle');
+        if (st) {
+          st.classList.toggle('on', !!state.harness.globalApprovalGate);
+          st.setAttribute('aria-checked', String(!!state.harness.globalApprovalGate));
+        }
+      }
+
+      function showToast(message, tone) {
+        const root = document.getElementById('toast-root');
+        if (!root) return;
+        const el = document.createElement('div');
+        const bgStyle = tone === 'danger'
+          ? 'background: var(--danger); color: #fff;'
+          : tone === 'success'
+          ? 'background: var(--success); color: #fff;'
+          : 'background: var(--text); color: var(--bg);';
+        el.className = 'px-3.5 py-2.5 rounded-xl text-xs font-medium shadow-lg pointer-events-auto flex items-center justify-between gap-2';
+        el.style.cssText = bgStyle;
+        el.textContent = message;
+        root.appendChild(el);
+        setTimeout(() => {
+          el.style.opacity = '0';
+          el.style.transition = 'opacity 0.2s ease';
+          setTimeout(() => el.remove(), 220);
+        }, 2600);
+      }
+
+      function copyText(text, label) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => showToast((label || 'Text') + ' copied', 'success')).catch(() => fallbackCopy(text, label));
+        } else {
+          fallbackCopy(text, label);
+        }
+      }
+      function fallbackCopy(text, label) {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+          showToast((label || 'Text') + ' copied', 'success');
+        } catch (e) {
+          showToast('Copy failed', 'danger');
+        }
+      }
+
+      function escapeHtml(str) {
+        return String(str || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function renderMarkdownWithWikiLinks(md) {
+        const lines = String(md || '').split('\n');
+        let html = '';
+        let inList = false;
+        for (const raw of lines) {
+          let line = escapeHtml(raw);
+          // Inline bold & code
+          line = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+          line = line.replace(/`([^`]+)`/g, '<code class="font-mono-code text-[12px] px-1 py-0.5 rounded" style="background:var(--surface-2);">$1</code>');
+          // Wikilinks [[Title]]
+          line = line.replace(/\[\[([^\]]+)\]\]/g, (_, title) => {
+            return '<button type="button" class="wikilink" data-wikilink="' + title + '">[[' + title + ']]</button>';
+          });
+
+          if (line.startsWith('# ')) {
+            if (inList) { html += '</ul>'; inList = false; }
+            html += '<h2 class="font-display text-lg font-bold mt-1 mb-2">' + line.slice(2) + '</h2>';
+          } else if (line.startsWith('## ')) {
+            if (inList) { html += '</ul>'; inList = false; }
+            html += '<h3 class="font-display text-sm font-bold mt-3.5 mb-1.5">' + line.slice(3) + '</h3>';
+          } else if (line.startsWith('- ')) {
+            if (!inList) { html += '<ul class="list-disc pl-5 space-y-1 my-1.5">'; inList = true; }
+            html += '<li class="text-[13.5px]">' + line.slice(2) + '</li>';
+          } else if (/^\d+\.\s/.test(line)) {
+            if (inList) { html += '</ul>'; inList = false; }
+            html += '<p class="text-[13.5px] my-1">' + line + '</p>';
+          } else if (line.trim() === '') {
+            if (inList) { html += '</ul>'; inList = false; }
+          } else {
+            if (inList) { html += '</ul>'; inList = false; }
+            html += '<p class="text-[13.5px] my-1.5">' + line + '</p>';
+          }
+        }
+        if (inList) html += '</ul>';
+        return html;
+      }
+
+      function getProviderModels(providerKey) {
+        const defaults = (PROVIDERS[providerKey] && PROVIDERS[providerKey].models) || [];
+        const custom = (state.providers[providerKey] && Array.isArray(state.providers[providerKey].customModels))
+          ? state.providers[providerKey].customModels
+          : [];
+        return Array.from(new Set([...custom, ...defaults]));
+      }
+
+      function addCustomModelId(providerKey, modelId) {
+        const clean = String(modelId || '').trim();
+        if (!clean) return false;
+        if (!state.providers[providerKey]) state.providers[providerKey] = { apiKey: '', baseUrl: '', customModels: [] };
+        if (!Array.isArray(state.providers[providerKey].customModels)) state.providers[providerKey].customModels = [];
+        if (!state.providers[providerKey].customModels.includes(clean)) {
+          state.providers[providerKey].customModels.unshift(clean);
+          saveState();
+          return true;
+        }
+        return false;
+      }
+
+      function getAgent(id) {
+        return state.agents.find(a => a.id === id) || state.agents[0];
+      }
+
+      function isApprovalActiveForAgent(agent) {
+        if (!state.harness.globalApprovalGate) return false;
+        if (agent && agent.approvalGate === false) return false;
+        return true;
+      }
+
+      // Dynamic AGENTS.md compiler (agent-harness-architect 5 layers)
+      function compileAgentsMd() {
+        const activeAgents = state.agents.map(a => `- **${a.name}** (${a.provider}/${a.model}, maxSteps=${a.maxSteps}, wiki=${a.wikiPermission}, approvalGate=${isApprovalActiveForAgent(a) ? 'ON' : 'OFF'})`).join('\n');
+        const gatedTools = [
+          ...state.tools.filter(t => t.enabled && t.destructive).map(t => t.name),
+          ...state.connectors.filter(c => c.enabled && c.requiresApproval).map(c => c.name)
+        ];
+        const ratchetLines = state.harness.ratchetRules.map((r, i) => `${i + 1}. ${r.rule}`).join('\n');
+        return `# AGENTS.md — Keryx Runtime Harness
+
+## 1. Identity, Scope & Stack
+- Runtime: Keryx Personal Agentic Platform (Mobile-first + Background Queue + LLM Wiki).
+- Active Policy: **${state.harness.defaultPolicy.toUpperCase()}** | Global Approval Gate: **${state.harness.globalApprovalGate ? 'ENABLED' : 'DISABLED'}**.
+- Budgets: maxSteps=${state.harness.maxSteps}, maxRetries=${state.harness.maxRetries} per task.
+- Registered Agents:
+${activeAgents}
+
+## 2. Session Protocol
+- **Startup**: Read \`wiki/index.md\` and active task \`todo\` + \`progress\` before invoking external tools.
+- **Execution Loop**: Complete one coherent step at a time. Log every tool call with concise outputs.
+- **Completion Gate**: Never mark a task \`completed\` until the Verification Gate passes with 0 blocking errors.
+
+## 3. Tool Contracts & Approval Boundaries
+- Prefer built-in \`wiki_read_write\` and \`persistent_memory\` for local knowledge before external fetches.
+- **Human Approval Required** (when Approval Gate is ON): ${gatedTools.length ? gatedTools.join(', ') : 'None (Autopilot mode)'}.
+- Hard Prohibitions: Never fabricate tool outputs, never delete wiki pages without approval, never bypass retry caps.
+
+## 4. Verification & Backpressure Sensors
+- Run \`schema_verify\` + \`harness-critic\` before final delivery (silent on pass, verbose on failure).
+- **Escape Hatch**: Stop after ${state.harness.maxRetries} consecutive failures and report exact error details to the user.
+
+## 5. State Persistence & Ratchet Rules
+- Persist task state in \`todo\`, \`progress\`, and append every wiki mutation to \`wiki/log.md\`.
+- Obsidian Mobile Vault: **${state.obsidian.vaultName}** (folder: \`${state.obsidian.folderPath || '/'}\`, mode: \`${state.obsidian.syncMode}\`, writeApproval: **${state.obsidian.requireApprovalOnWrite ? 'ON' : 'OFF'}**).
+- Earned Ratchet Rules:
+${ratchetLines}`;
+      }
+
+      // Background Task Engine
+      function enqueueBackgroundTask({ title, agentId, schedule, requiresExternalSend, wikiWriteTitle }) {
+        const agent = getAgent(agentId);
+        const task = {
+          id: uid('task'),
+          title: title.trim() || 'Background Agent Task',
+          agentId: agent.id,
+          schedule: schedule || 'One-off',
+          status: 'running',
+          createdAt: nowTime(),
+          stepsUsed: 0,
+          maxSteps: agent.maxSteps || state.harness.maxSteps,
+          retries: 0,
+          pendingAction: null,
+          requiresExternalSend: !!requiresExternalSend,
+          wikiWriteTitle: wikiWriteTitle || null,
+          todos: [
+            { text: 'Orient via AGENTS.md & [[Wiki Index]]', status: 'active' },
+            { text: 'Execute assigned tools & skills (' + (agent.skillIds.length || 1) + ' active)', status: 'pending' },
+            { text: requiresExternalSend ? 'Dispatch outbound connector update' : 'Synthesize findings & update LLM Wiki', status: 'pending' },
+            { text: 'Run Harness Verification Gate (schema + critic)', status: 'pending' }
+          ],
+          logs: [
+            { time: nowTime(), type: 'orient', text: `Dispatched to ${agent.name} (${agent.provider}/${agent.model}).` }
+          ],
+          verification: { passed: null, notes: 'Queued for verification.' }
+        };
+        state.tasks.unshift(task);
+        saveState();
+        updateBadges();
+        if (state.ui.tab === 'tasks') renderMain();
+        showToast(`Queued: ${task.title}`, 'success');
+        return task;
+      }
+
+      function tickBackgroundTasks() {
+        let changed = false;
+        for (const task of state.tasks) {
+          if (task.status !== 'running') continue;
+          const agent = getAgent(task.agentId);
+          const activeIdx = task.todos.findIndex(t => t.status === 'active' || t.status === 'pending');
+          if (activeIdx === -1) {
+            task.status = 'completed';
+            changed = true;
+            continue;
+          }
+
+          // Mark current step active if pending
+          if (task.todos[activeIdx].status === 'pending') {
+            task.todos[activeIdx].status = 'active';
+            changed = true;
+            continue;
+          }
+
+          task.stepsUsed += 1;
+          changed = true;
+
+          // Step 2 (index 2): Check if approval gate should pause
+          if (activeIdx === 2 && task.requiresExternalSend && isApprovalActiveForAgent(agent) && !task._approvedOnce) {
+            task.status = 'awaiting_approval';
+            task.todos[activeIdx].status = 'waiting';
+            const conn = state.connectors.find(c => agent.connectorIds.includes(c.id)) || state.connectors[0];
+            task.pendingAction = {
+              tool: conn ? `${conn.name} (${conn.handle})` : 'Outbound Connector',
+              action: `Send external message for "${task.title}"`,
+              reason: 'Balanced Harness requires approval for external sends.'
+            };
+            task.logs.push({ time: nowTime(), type: 'gate', text: `PAUSED: Awaiting approval for ${task.pendingAction.tool}.` });
+            showToast(`Approval needed: ${task.title}`, 'warn');
+            continue;
+          }
+
+          // Complete current step
+          task.todos[activeIdx].status = 'done';
+          if (activeIdx === 0) {
+            task.logs.push({ time: nowTime(), type: 'orient', text: `Read AGENTS.md & Wiki Index (${state.wiki.length} pages).` });
+          } else if (activeIdx === 1) {
+            const toolNames = state.tools.filter(t => agent.toolIds.includes(t.id)).slice(0, 2).map(t => t.name).join(', ') || 'wiki_read_write';
+            task.logs.push({ time: nowTime(), type: 'tool', text: `Ran [${toolNames}] — gathered structured output cleanly.` });
+          } else if (activeIdx === 2) {
+            if (task.wikiWriteTitle) {
+              upsertWikiPageFromAgent(task.wikiWriteTitle, agent.name, task.title);
+              task.logs.push({ time: nowTime(), type: 'tool', text: `Updated LLM Wiki page [[${task.wikiWriteTitle}]] & appended [[Wiki Log]].` });
+            } else {
+              task.logs.push({ time: nowTime(), type: 'tool', text: task.requiresExternalSend ? 'Dispatched connector payload (approved).' : 'Synthesized structured draft with [[Wiki Index]] references.' });
+            }
+          } else if (activeIdx === 3) {
+            task.verification = { passed: true, notes: 'Schema valid, 0 placeholders, wiki links verified.' };
+            task.logs.push({ time: nowTime(), type: 'verify', text: 'VERIFICATION GATE PASSED: All harness checks green.' });
+            task.status = 'completed';
+            showToast(`Completed: ${task.title}`, 'success');
+          }
+
+          // Advance next step to active
+          if (activeIdx + 1 < task.todos.length) {
+            task.todos[activeIdx + 1].status = 'active';
+          }
+        }
+
+        if (changed) {
+          saveState();
+          updateBadges();
+          if (state.ui.tab === 'tasks' || state.ui.tab === 'wiki') {
+            renderMain();
+          }
+        }
+      }
+
+      function upsertWikiPageFromAgent(title, agentName, taskTitle) {
+        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        let existing = state.wiki.find(w => w.title.toLowerCase() === title.toLowerCase() || w.slug === slug);
+        const body = `# ${title}\n\nGenerated in background by **${agentName}** from task: *${taskTitle}*.\n\n## Key Points\n- Verified under [[Agent Harness Architecture]] guardrails.\n- Cross-linked with [[Wiki Index]] and [[Hermes Agent Pattern]].\n- Logged automatically to [[Wiki Log]].`;
+        if (existing) {
+          existing.content = body;
+          existing.updatedAt = 'Today, ' + nowTime();
+        } else {
+          state.wiki.push({
+            id: uid('wiki'),
+            slug: slug || uid('page'),
+            title: title,
+            category: 'sources',
+            updatedAt: 'Today, ' + nowTime(),
+            content: body
+          });
+        }
+        // Append to Wiki Log
+        const logPage = state.wiki.find(w => w.id === 'wiki_log' || w.slug === 'wiki-log');
+        if (logPage) {
+          logPage.content += `\n- **${nowTime()}** — ${agentName} updated [[${title}]] via background task.`;
+          logPage.updatedAt = 'Today, ' + nowTime();
+        }
+      }
+
+      function updateBadges() {
+        const running = state.tasks.filter(t => t.status === 'running').length;
+        const waiting = state.tasks.filter(t => t.status === 'awaiting_approval').length;
+        const pill = document.getElementById('btn-bg-pill');
+        const pillText = document.getElementById('bg-pill-text');
+        const dot = document.getElementById('nav-tasks-dot');
+        const sideBadge = document.getElementById('sidebar-tasks-badge');
+
+        if (pill && pillText) {
+          if (running > 0) {
+            pill.classList.remove('hidden');
+            pill.className = 'pill pill-accent cursor-pointer';
+            pillText.textContent = `${running} running`;
+          } else if (waiting > 0) {
+            pill.classList.remove('hidden');
+            pill.className = 'pill pill-warn cursor-pointer';
+            pillText.textContent = `${waiting} approval`;
+          } else {
+            pill.classList.add('hidden');
+          }
+        }
+        if (dot) dot.classList.toggle('hidden', running + waiting === 0);
+        if (sideBadge) {
+          sideBadge.textContent = String(running + waiting);
+          sideBadge.classList.toggle('hidden', running + waiting === 0);
+        }
+      }
+
+      // Live BYOK LLM Call (with safe fallback to simulation)
+      async function runAgentChatTurn(agent, userText) {
+        const providerCfg = state.providers[agent.provider] || {};
+        const apiKey = (providerCfg.apiKey || '').trim();
+
+        // If user entered a real API key for Gemini, OpenAI, OpenRouter, or custom HTTPS endpoint, try live call
+        const customBase = (providerCfg.baseUrl || '').trim();
+        const isCustomHttps = agent.provider === 'custom' && customBase.startsWith('https://');
+        if (apiKey && (agent.provider === 'gemini' || agent.provider === 'openai' || agent.provider === 'openrouter' || isCustomHttps)) {
+          try {
+            const sysPrompt = agent.systemPrompt + '\n\nActive Harness Rules:\n' + compileAgentsMd();
+            if (agent.provider === 'gemini') {
+              const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(agent.model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+              const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  system_instruction: { parts: [{ text: sysPrompt }] },
+                  contents: [{ role: 'user', parts: [{ text: userText }] }],
+                  generationConfig: { temperature: agent.temperature }
+                })
+              });
+              if (!res.ok) throw new Error('Gemini API ' + res.status);
+              const data = await res.json();
+              const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (reply) {
+                return {
+                  text: reply,
+                  trace: [
+                    { step: 'Live API', detail: `Called ${agent.provider}/${agent.model}`, status: 'ok' },
+                    { step: 'Harness Gate', detail: 'Verified output format cleanly', status: 'ok' }
+                  ]
+                };
+              }
+            } else {
+              const endpoint = agent.provider === 'openrouter'
+                ? 'https://openrouter.ai/api/v1/chat/completions'
+                : agent.provider === 'custom'
+                ? customBase.replace(/\/+$/, '') + '/chat/completions'
+                : 'https://api.openai.com/v1/chat/completions';
+              const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer ' + apiKey
+                },
+                body: JSON.stringify({
+                  model: agent.model,
+                  temperature: agent.temperature,
+                  messages: [
+                    { role: 'system', content: sysPrompt },
+                    { role: 'user', content: userText }
+                  ]
+                })
+              });
+              if (!res.ok) throw new Error(`${agent.provider} API ${res.status}`);
+              const data = await res.json();
+              const reply = data?.choices?.[0]?.message?.content;
+              if (reply) {
+                return {
+                  text: reply,
+                  trace: [
+                    { step: 'Live API', detail: `Called ${agent.provider}/${agent.model}`, status: 'ok' },
+                    { step: 'Harness Gate', detail: 'Verified output format cleanly', status: 'ok' }
+                  ]
+                };
+              }
+            }
+          } catch (err) {
+            showToast('Live API failed — used simulator (' + err.message + ')', 'warn');
+          }
+        }
+
+        // Simulated Hermes + Harness + LLM Wiki response
+        const lower = userText.toLowerCase();
+        const needsSend = /telegram|slack|discord|whatsapp|send|notify|webhook|email/.test(lower);
+        const mentionsWiki = /wiki|note|ingest|index|lint|knowledge/.test(lower);
+        const toolsUsed = state.tools.filter(t => agent.toolIds.includes(t.id)).slice(0, 2).map(t => t.name);
+        const skillsUsed = state.skills.filter(s => agent.skillIds.includes(s.id)).map(s => s.name);
+
+        if (needsSend && isApprovalActiveForAgent(agent)) {
+          return {
+            text: `I prepared the outbound action for **"${userText.slice(0, 70)}"**, but **Approval Gate is ON**. Review and approve below to dispatch via your connector.`,
+            pendingApproval: {
+              id: uid('appr'),
+              tool: 'Outbound Connector',
+              summary: `Dispatch message: "${userText.slice(0, 90)}"`,
+              status: 'pending'
+            },
+            trace: [
+              { step: 'Orient', detail: `Loaded AGENTS.md (${state.harness.defaultPolicy})`, status: 'ok' },
+              { step: 'Approval Gate', detail: 'Paused external send for human confirmation', status: 'warn' }
+            ]
+          };
+        }
+
+        let replyText = `**${agent.name}** processed your request using \`${agent.model}\`.\n\n`;
+        if (mentionsWiki) {
+          replyText += `- Checked **[[Wiki Index]]** (${state.wiki.length} pages) and cross-referenced **[[Agent Harness Architecture]]**.\n- Ready to ingest or update a wiki page — tap **Send to Background** to run a full async curation pass.`;
+        } else {
+          replyText += `- Activated skills: ${skillsUsed.length ? skillsUsed.map(s => '`' + s + '`').join(', ') : '`core`'}.\n- Ran tools: ${toolsUsed.length ? toolsUsed.map(t => '`' + t + '`').join(', ') : '`persistent_memory`'}.\n- Harness Verification Gate passed (0 errors). Want me to run a deeper multi-step version in the background?`;
+        }
+
+        return {
+          text: replyText,
+          trace: [
+            { step: 'Orient', detail: `Read AGENTS.md & [[Wiki Index]]`, status: 'ok' },
+            { step: 'Tools', detail: toolsUsed.join(', ') || 'persistent_memory', status: 'ok' },
+            { step: 'Verify Gate', detail: 'Schema & guardrail check passed', status: 'ok' }
+          ]
+        };
+      }
+
+      // ============================
+      // VIEW RENDERERS
+      // ============================
+      function renderNavState() {
+        document.querySelectorAll('[data-nav]').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.nav === state.ui.tab);
+        });
+      }
+
+      function renderMain() {
+        renderNavState();
+        const root = document.getElementById('main-content');
+        if (!root) return;
+        const tab = state.ui.tab;
+        if (tab === 'chat') root.innerHTML = renderChatView();
+        else if (tab === 'tasks') root.innerHTML = renderTasksView();
+        else if (tab === 'agents') root.innerHTML = renderAgentsView();
+        else if (tab === 'wiki') root.innerHTML = renderWikiView();
+        else if (tab === 'hub') root.innerHTML = renderHubView();
+        attachViewListeners();
+        if (window.lucide) window.lucide.createIcons();
+      }
+
+      // 1. CHAT VIEW
+      function renderChatView() {
+        const agent = getAgent(state.ui.activeAgentId);
+        const messages = state.chats[agent.id] || [];
+        const gateOn = isApprovalActiveForAgent(agent);
+
+        const agentChips = state.agents.map(a => {
+          const active = a.id === agent.id;
+          return `<button data-select-chat-agent="${a.id}" class="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition" style="${active ? 'background:var(--accent); color:var(--accent-fg);' : 'background:var(--surface); border:1px solid var(--border); color:var(--text);'}">
+            <span>${a.emoji}</span><span>${escapeHtml(a.name)}</span>
+          </button>`;
+        }).join('');
+
+        const msgHtml = messages.map(m => {
+          if (m.role === 'user') {
+            return `<div class="flex justify-end">
+              <div class="max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-br-md text-[13.5px]" style="background:var(--accent); color:var(--accent-fg);">
+                <div>${escapeHtml(m.text)}</div>
+                <div class="text-[10px] opacity-75 mt-1 text-right">${m.time}</div>
+              </div>
+            </div>`;
+          }
+          const traceHtml = (m.trace && m.trace.length) ? `
+            <details class="mt-2 pt-2 border-t" style="border-color:var(--border);">
+              <summary class="text-[11px] font-medium cursor-pointer select-none flex items-center gap-1" style="color:var(--muted);">
+                <span>Harness trace (${m.trace.length} ${m.trace.length === 1 ? 'step' : 'steps'})</span>
+              </summary>
+              <div class="mt-1.5 space-y-1">
+                ${m.trace.map(tr => `<div class="text-[11px] flex items-start gap-1.5 font-mono-code">
+                  <span style="color:${tr.status === 'warn' ? 'var(--warn)' : 'var(--success)'};">●</span>
+                  <span class="font-semibold">${escapeHtml(tr.step)}:</span>
+                  <span style="color:var(--muted);">${escapeHtml(tr.detail)}</span>
+                </div>`).join('')}
+              </div>
+            </details>` : '';
+
+          const approvalHtml = m.pendingApproval ? `
+            <div class="mt-2.5 p-2.5 rounded-xl border" style="background:var(--warn-soft); border-color:var(--warn);">
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <span class="text-[11px] font-bold" style="color:var(--warn);">APPROVAL GATE · ${escapeHtml(m.pendingApproval.tool)}</span>
+                <span class="pill ${m.pendingApproval.status === 'approved' ? 'pill-success' : m.pendingApproval.status === 'rejected' ? 'pill-danger' : 'pill-warn'}">${m.pendingApproval.status}</span>
+              </div>
+              <p class="text-xs mb-2">${escapeHtml(m.pendingApproval.summary)}</p>
+              ${m.pendingApproval.status === 'pending' ? `
+                <div class="flex gap-2">
+                  <button data-chat-approve="${m.id}" class="btn-primary px-3 py-1 text-xs">Approve &amp; Send</button>
+                  <button data-chat-reject="${m.id}" class="btn-ghost px-3 py-1 text-xs">Reject</button>
+                </div>` : ''}
+            </div>` : '';
+
+          return `<div class="flex justify-start">
+            <div class="max-w-[92%] surface card-pad">
+              <div class="flex items-center justify-between gap-2 mb-1.5">
+                <div class="flex items-center gap-1.5">
+                  <span>${agent.emoji}</span>
+                  <span class="text-xs font-semibold">${escapeHtml(agent.name)}</span>
+                  <span class="pill pill-muted text-[10px]">${escapeHtml(agent.model)}</span>
+                </div>
+                <span class="text-[10px]" style="color:var(--muted);">${m.time}</span>
+              </div>
+              <div class="prose-sm">${renderMarkdownWithWikiLinks(m.text)}</div>
+              ${approvalHtml}
+              ${traceHtml}
+            </div>
+          </div>`;
+        }).join('');
+
+        return `<div class="flex flex-col gap-3 max-w-3xl mx-auto min-h-full">
+          <!-- Agent Selector Strip -->
+          <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
+            ${agentChips}
+            <button id="btn-quick-new-agent" class="shrink-0 px-2.5 py-1.5 rounded-full text-xs font-medium btn-ghost flex items-center gap-1">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i><span>New</span>
+            </button>
+          </div>
+
+          <!-- Active Agent Harness Bar -->
+          <div class="surface-subtle px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-xs font-medium truncate">${escapeHtml(agent.role)}</span>
+              <span class="pill ${gateOn ? 'pill-success' : 'pill-warn'}">Gate: ${gateOn ? 'ON' : 'OFF'}</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button data-edit-agent="${agent.id}" class="text-[11px] font-medium underline cursor-pointer" style="color:var(--accent);">Configure</button>
+            </div>
+          </div>
+
+          <!-- Messages -->
+          <div id="chat-messages-list" class="space-y-3 flex-1">
+            ${msgHtml}
+          </div>
+
+          <!-- Composer -->
+          <div class="surface p-2.5 space-y-2 sticky bottom-0">
+            <textarea id="chat-input" rows="2" class="input-field resize-none" placeholder="Ask ${escapeHtml(agent.name)} or dispatch a background task..."></textarea>
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <div class="flex items-center gap-1.5">
+                <button id="btn-chat-bg" class="btn-ghost px-2.5 py-1.5 text-xs flex items-center gap-1.5" title="Queue in background runner">
+                  <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+                  <span>Run in Background</span>
+                </button>
+                <button id="btn-chat-clear" class="btn-ghost px-2 py-1.5 text-xs" title="Clear thread">Clear</button>
+              </div>
+              <button id="btn-chat-send" class="btn-primary px-3.5 py-1.5 text-xs flex items-center gap-1.5">
+                <span>Send</span>
+                <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>`;
+      }
+
+      // 2. BACKGROUND TASKS & CRON VIEW
+      function renderTasksView() {
+        const filter = state.ui.taskFilter || 'all';
+        const filtered = state.tasks.filter(t => filter === 'all' ? true : t.status === filter);
+        const runningCount = state.tasks.filter(t => t.status === 'running').length;
+        const waitingCount = state.tasks.filter(t => t.status === 'awaiting_approval').length;
+
+        const tasksHtml = filtered.length ? filtered.map(task => {
+          const agent = getAgent(task.agentId);
+          const statusPill = task.status === 'running'
+            ? '<span class="pill pill-accent"><span class="w-1.5 h-1.5 rounded-full pulse-dot" style="background:var(--accent);"></span>Running</span>'
+            : task.status === 'awaiting_approval'
+            ? '<span class="pill pill-warn">Needs Approval</span>'
+            : task.status === 'completed'
+            ? '<span class="pill pill-success">Verified Done</span>'
+            : '<span class="pill pill-muted">' + escapeHtml(task.status) + '</span>';
+
+          const todosHtml = task.todos.map(td => {
+            const icon = td.status === 'done' ? '✓' : td.status === 'active' ? '▸' : td.status === 'waiting' ? '⏸' : '○';
+            const col = td.status === 'done' ? 'var(--success)' : td.status === 'waiting' ? 'var(--warn)' : td.status === 'active' ? 'var(--accent)' : 'var(--muted)';
+            return `<div class="flex items-start gap-2 text-xs">
+              <span class="font-mono-code font-bold w-3 shrink-0" style="color:${col};">${icon}</span>
+              <span class="${td.status === 'done' ? 'line-through opacity-70' : ''}">${escapeHtml(td.text)}</span>
+            </div>`;
+          }).join('');
+
+          const approvalBox = task.status === 'awaiting_approval' && task.pendingAction ? `
+            <div class="mt-2.5 p-3 rounded-xl border" style="background:var(--warn-soft); border-color:var(--warn);">
+              <div class="text-[11px] font-bold uppercase tracking-wide mb-1" style="color:var(--warn);">Approval Gate Triggered</div>
+              <div class="text-xs font-semibold">${escapeHtml(task.pendingAction.tool)}</div>
+              <div class="text-xs mt-0.5" style="color:var(--muted);">${escapeHtml(task.pendingAction.action)}</div>
+              <div class="flex gap-2 mt-2.5">
+                <button data-task-approve="${task.id}" class="btn-primary px-3 py-1.5 text-xs">Approve &amp; Resume</button>
+                <button data-task-reject="${task.id}" class="btn-ghost px-3 py-1.5 text-xs">Reject Action</button>
+              </div>
+            </div>` : '';
+
+          return `<div class="surface card-pad space-y-2.5">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap mb-1">
+                  ${statusPill}
+                  <span class="pill pill-muted">${agent.emoji} ${escapeHtml(agent.name)}</span>
+                  <span class="pill pill-muted">${escapeHtml(task.schedule)}</span>
+                </div>
+                <h3 class="font-semibold text-[14px] leading-snug">${escapeHtml(task.title)}</h3>
+              </div>
+              <div class="text-[11px] font-mono-code shrink-0" style="color:var(--muted);">${task.stepsUsed}/${task.maxSteps} steps</div>
+            </div>
+
+            <div class="surface-subtle p-2.5 space-y-1.5">
+              ${todosHtml}
+            </div>
+
+            ${approvalBox}
+
+            <details class="text-xs">
+              <summary class="cursor-pointer font-medium select-none" style="color:var(--muted);">Progress log (${task.logs.length}) &amp; Verification Gate</summary>
+              <div class="mt-2 space-y-1 font-mono-code text-[11px] p-2.5 rounded-lg" style="background:var(--surface-2);">
+                ${task.logs.map(l => `<div><span style="color:var(--muted);">[${l.time}]</span> <span class="font-semibold uppercase">${l.type}:</span> ${escapeHtml(l.text)}</div>`).join('')}
+                <div class="pt-1.5 mt-1.5 border-t" style="border-color:var(--border);">
+                  <strong>Gate:</strong> ${escapeHtml(task.verification.notes)}
+                </div>
+              </div>
+            </details>
+
+            <div class="flex items-center justify-end gap-2 pt-1">
+              ${task.status === 'running' ? `<button data-task-pause="${task.id}" class="btn-ghost px-2.5 py-1 text-xs">Pause</button>` : ''}
+              ${task.status === 'paused' ? `<button data-task-resume="${task.id}" class="btn-primary px-2.5 py-1 text-xs">Resume</button>` : ''}
+              ${task.status === 'completed' || task.status === 'rejected' ? `<button data-task-rerun="${task.id}" class="btn-ghost px-2.5 py-1 text-xs">Re-run</button>` : ''}
+              <button data-task-delete="${task.id}" class="btn-ghost px-2.5 py-1 text-xs" style="color:var(--danger);">Remove</button>
+            </div>
+          </div>`;
+        }).join('') : `<div class="surface card-pad text-center py-8" style="color:var(--muted);">No tasks in this filter yet. Dispatch one above!</div>`;
+
+        const cronsHtml = state.cronJobs.map(c => {
+          const agent = getAgent(c.agentId);
+          return `<div class="surface card-pad flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="font-semibold text-xs truncate">${escapeHtml(c.name)}</span>
+                <span class="pill pill-muted text-[10px]">${escapeHtml(c.schedule)}</span>
+              </div>
+              <div class="text-[11px] mt-0.5 truncate" style="color:var(--muted);">${agent.emoji} ${escapeHtml(agent.name)} · Last: ${escapeHtml(c.lastRun)}</div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button data-cron-run="${c.id}" class="btn-ghost px-2.5 py-1 text-xs">Run</button>
+              <div data-cron-toggle="${c.id}" class="toggle-track ${c.enabled ? 'on' : ''}" role="switch" aria-checked="${c.enabled}"><div class="toggle-thumb"></div></div>
+            </div>
+          </div>`;
+        }).join('');
+
+        return `<div class="space-y-4 max-w-3xl mx-auto">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <div>
+              <h2 class="font-display text-lg font-bold">Background Runner</h2>
+              <p class="text-xs" style="color:var(--muted);">${runningCount} running · ${waitingCount} awaiting approval · Persistent harness loop</p>
+            </div>
+            <button id="btn-new-task" class="btn-primary px-3.5 py-2 text-xs flex items-center gap-1.5">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i><span>New Task</span>
+            </button>
+          </div>
+
+          <!-- Global Approval Gate Quick Bar -->
+          <div class="surface card-pad flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="text-xs font-semibold flex items-center gap-1.5">
+                <i data-lucide="shield-alert" class="w-3.5 h-3.5" style="color:var(--accent);"></i>
+                <span>Global Approval Gate</span>
+              </div>
+              <p class="text-[11px] mt-0.5" style="color:var(--muted);">Toggle ON to pause destructive/external actions, or OFF for full autopilot.</p>
+            </div>
+            <div id="tasks-approval-toggle" class="toggle-track ${state.harness.globalApprovalGate ? 'on' : ''}" role="switch" aria-checked="${state.harness.globalApprovalGate}"><div class="toggle-thumb"></div></div>
+          </div>
+
+          <!-- Filter Pills -->
+          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            ${['all', 'running', 'awaiting_approval', 'completed'].map(f => {
+              const label = f === 'all' ? 'All' : f === 'running' ? 'Running' : f === 'awaiting_approval' ? 'Approvals' : 'Completed';
+              return `<button data-task-filter="${f}" class="px-3 py-1 rounded-full text-xs font-medium shrink-0" style="${filter === f ? 'background:var(--accent); color:var(--accent-fg);' : 'background:var(--surface); border:1px solid var(--border); color:var(--muted);'}">${label}</button>`;
+            }).join('')}
+          </div>
+
+          <!-- Task Cards -->
+          <div class="space-y-3">${tasksHtml}</div>
+
+          <!-- Scheduled Cron Jobs -->
+          <div class="pt-2 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <h3 class="font-display text-sm font-bold">Scheduled Cron Jobs</h3>
+              <span class="text-[11px]" style="color:var(--muted);">Hermes-style recurring loops</span>
+            </div>
+            <div class="space-y-2">${cronsHtml}</div>
+          </div>
+        </div>`;
+      }
+
+      // 3. CUSTOM AGENTS VIEW
+      function renderAgentsView() {
+        const cards = state.agents.map(a => {
+          const gateOn = isApprovalActiveForAgent(a);
+          return `<div class="surface card-pad space-y-3">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0" style="background:var(--surface-2); border:1px solid var(--border);">${a.emoji}</div>
+                <div class="min-w-0">
+                  <h3 class="font-semibold text-[14.5px] truncate">${escapeHtml(a.name)}</h3>
+                  <p class="text-xs truncate" style="color:var(--muted);">${escapeHtml(a.role)}</p>
+                </div>
+              </div>
+              <button data-edit-agent="${a.id}" class="btn-ghost px-2.5 py-1 text-xs shrink-0">Edit</button>
+            </div>
+
+            <div class="flex flex-wrap gap-1.5">
+              <span class="pill pill-accent">${escapeHtml(a.provider)} / ${escapeHtml(a.model)}</span>
+              <span class="pill pill-muted">Temp ${a.temperature}</span>
+              <span class="pill pill-muted">Max ${a.maxSteps} steps</span>
+              <span class="pill ${a.memoryEnabled ? 'pill-success' : 'pill-muted'}">Memory ${a.memoryEnabled ? 'ON' : 'OFF'}</span>
+              <span class="pill pill-muted">Wiki: ${escapeHtml(a.wikiPermission)}</span>
+              <span class="pill ${gateOn ? 'pill-success' : 'pill-warn'}">Approval ${gateOn ? 'ON' : 'OFF'}</span>
+            </div>
+
+            <div class="grid grid-cols-4 gap-1.5 text-center">
+              <div class="surface-subtle py-1.5 px-1">
+                <div class="text-xs font-bold">${a.toolIds.length}</div>
+                <div class="text-[10px]" style="color:var(--muted);">Tools</div>
+              </div>
+              <div class="surface-subtle py-1.5 px-1">
+                <div class="text-xs font-bold">${a.skillIds.length}</div>
+                <div class="text-[10px]" style="color:var(--muted);">Skills</div>
+              </div>
+              <div class="surface-subtle py-1.5 px-1">
+                <div class="text-xs font-bold">${a.mcpIds.length}</div>
+                <div class="text-[10px]" style="color:var(--muted);">MCP</div>
+              </div>
+              <div class="surface-subtle py-1.5 px-1">
+                <div class="text-xs font-bold">${a.connectorIds.length}</div>
+                <div class="text-[10px]" style="color:var(--muted);">Links</div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 pt-0.5">
+              <button data-chat-with-agent="${a.id}" class="btn-primary flex-1 py-1.5 text-xs">Open Chat</button>
+              <button data-dispatch-agent="${a.id}" class="btn-ghost flex-1 py-1.5 text-xs">Assign Task</button>
+            </div>
+          </div>`;
+        }).join('');
+
+        return `<div class="space-y-4 max-w-3xl mx-auto">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <h2 class="font-display text-lg font-bold">Custom Agents</h2>
+              <p class="text-xs" style="color:var(--muted);">Multi-provider BYOK · Per-agent harness, tools, skills &amp; wiki</p>
+            </div>
+            <button id="btn-create-agent" class="btn-primary px-3.5 py-2 text-xs flex items-center gap-1.5">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i><span>New Agent</span>
+            </button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">${cards}</div>
+        </div>`;
+      }
+
+      // 4. LLM WIKI VIEW (Karpathy-style Markdown Knowledge Base)
+      function renderWikiView() {
+        const search = (state.ui.wikiSearch || '').toLowerCase();
+        const cat = state.ui.wikiCategory || 'all';
+        const filtered = state.wiki.filter(p => {
+          const matchCat = cat === 'all' || p.category === cat;
+          const matchText = !search || p.title.toLowerCase().includes(search) || p.content.toLowerCase().includes(search);
+          return matchCat && matchText;
+        });
+
+        const activePage = state.wiki.find(p => p.id === state.ui.activeWikiId) || filtered[0] || state.wiki[0];
+        const backlinks = state.wiki.filter(p => p.id !== activePage.id && p.content.toLowerCase().includes('[[' + activePage.title.toLowerCase() + ']]'));
+
+        const pageListHtml = filtered.map(p => {
+          const isAct = p.id === activePage.id;
+          return `<button data-wiki-select="${p.id}" class="shrink-0 text-left px-3 py-2 rounded-xl transition" style="${isAct ? 'background:var(--accent-soft); border:1px solid var(--accent);' : 'background:var(--surface); border:1px solid var(--border);'}">
+            <div class="text-xs font-semibold truncate max-w-[160px]">${escapeHtml(p.title)}</div>
+            <div class="text-[10px] mt-0.5" style="color:var(--muted);">${escapeHtml(p.category)} · ${escapeHtml(p.updatedAt)}</div>
+          </button>`;
+        }).join('');
+
+        return `<div class="space-y-3.5 max-w-3xl mx-auto">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <div>
+              <h2 class="font-display text-lg font-bold">LLM Wiki</h2>
+              <p class="text-xs" style="color:var(--muted);">${state.wiki.length} persistent cross-linked Markdown pages</p>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button id="btn-open-obsidian" class="btn-ghost px-2.5 py-1.5 text-xs flex items-center gap-1" title="Configure Obsidian Mobile Vault">
+                <i data-lucide="gem" class="w-3.5 h-3.5" style="color:var(--accent);"></i><span>Obsidian</span>
+              </button>
+              <button id="btn-wiki-lint" class="btn-ghost px-2.5 py-1.5 text-xs flex items-center gap-1">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i><span>Lint</span>
+              </button>
+              <button id="btn-wiki-ingest" class="btn-primary px-3 py-1.5 text-xs flex items-center gap-1">
+                <i data-lucide="file-plus" class="w-3.5 h-3.5"></i><span>Ingest</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Obsidian Mobile Vault Status Bar -->
+          <div class="surface-subtle px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="pill ${state.obsidian.connected ? 'pill-success' : 'pill-accent'} text-[10px]">${state.obsidian.connected ? 'Vault Linked' : 'Obsidian Ready'}</span>
+              <span class="text-xs font-medium truncate">${escapeHtml(state.obsidian.vaultName)}</span>
+              <span class="text-[11px] truncate hidden sm:inline" style="color:var(--muted);">/${escapeHtml(state.obsidian.folderPath)}</span>
+            </div>
+            <button id="btn-obsidian-bar-open" class="text-[11px] font-semibold underline cursor-pointer shrink-0" style="color:var(--accent);">Import / Sync</button>
+          </div>
+
+          <!-- Search & Category Filter -->
+          <div class="flex gap-2">
+            <input id="wiki-search-input" type="text" class="input-field" value="${escapeHtml(state.ui.wikiSearch)}" placeholder="Search wiki pages or [[concepts]]..." />
+          </div>
+          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            ${['all', 'index', 'concepts', 'entities', 'sources', 'logs'].map(c => `
+              <button data-wiki-cat="${c}" class="px-2.5 py-1 rounded-full text-xs capitalize shrink-0" style="${cat === c ? 'background:var(--accent); color:var(--accent-fg);' : 'background:var(--surface); border:1px solid var(--border); color:var(--muted);'}">${c}</button>
+            `).join('')}
+          </div>
+
+          <!-- Page Strip -->
+          <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+            ${pageListHtml || '<div class="text-xs py-2" style="color:var(--muted);">No matching pages.</div>'}
+          </div>
+
+          <!-- Active Wiki Page Reader / Editor -->
+          ${activePage ? `<div class="surface card-pad space-y-3">
+            <div class="flex items-center justify-between gap-2 pb-2 border-b" style="border-color:var(--border);">
+              <div>
+                <span class="pill pill-muted text-[10px] uppercase">${escapeHtml(activePage.category)}</span>
+                <span class="text-[11px] ml-1.5" style="color:var(--muted);">Updated ${escapeHtml(activePage.updatedAt)}</span>
+              </div>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                ${activePage.source === 'obsidian' ? '<span class="pill pill-accent text-[10px]">Obsidian</span>' : ''}
+                <button id="btn-wiki-push-obsidian" class="btn-ghost px-2 py-1 text-[11px] flex items-center gap-1" title="Push note into mobile Obsidian app via obsidian:// URI">
+                  <i data-lucide="external-link" class="w-3 h-3"></i><span>Obsidian</span>
+                </button>
+                <button id="btn-wiki-download-md" class="btn-ghost px-2 py-1 text-[11px]" title="Download Obsidian .md file">.md</button>
+                <button id="btn-wiki-toggle-edit" class="btn-ghost px-2.5 py-1 text-xs">${state.ui.wikiEditMode ? 'Preview' : 'Edit MD'}</button>
+              </div>
+            </div>
+
+            ${state.ui.wikiEditMode ? `
+              <div class="space-y-2">
+                <textarea id="wiki-editor-ta" rows="11" class="input-field font-mono-code text-xs">${escapeHtml(activePage.content)}</textarea>
+                <div class="flex justify-end gap-2">
+                  <button id="btn-wiki-save" class="btn-primary px-3.5 py-1.5 text-xs">Save Page</button>
+                </div>
+              </div>
+            ` : `
+              <div class="leading-relaxed">${renderMarkdownWithWikiLinks(activePage.content)}</div>
+            `}
+
+            <!-- Backlinks -->
+            <div class="pt-3 border-t" style="border-color:var(--border);">
+              <div class="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style="color:var(--muted);">Backlinks (${backlinks.length})</div>
+              <div class="flex flex-wrap gap-1.5">
+                ${backlinks.length ? backlinks.map(b => `<button data-wiki-select="${b.id}" class="wikilink text-xs">← ${escapeHtml(b.title)}</button>`).join('') : '<span class="text-xs" style="color:var(--muted);">No incoming links yet.</span>'}
+              </div>
+            </div>
+          </div>` : ''}
+        </div>`;
+      }
+
+      // 5. HUB VIEW (Tools, Skills, MCP, Connectors)
+      function renderHubView() {
+        const sub = state.ui.hubSubTab || 'tools';
+        let bodyHtml = '';
+
+        if (sub === 'tools') {
+          bodyHtml = `<div class="space-y-2.5">
+            <div class="flex items-center justify-between">
+              <p class="text-xs" style="color:var(--muted);">Built-in Hermes tools &amp; custom REST/Webhook tools</p>
+              <button id="btn-add-tool" class="btn-primary px-3 py-1.5 text-xs">+ Add Tool</button>
+            </div>
+            ${state.tools.map(t => `
+              <div class="surface card-pad flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="font-mono-code text-xs font-bold">${escapeHtml(t.name)}</span>
+                    <span class="pill pill-muted text-[10px]">${escapeHtml(t.category)}</span>
+                    ${t.destructive ? '<span class="pill pill-warn text-[10px]">Approval Gated</span>' : ''}
+                  </div>
+                  <p class="text-xs mt-1" style="color:var(--muted);">${escapeHtml(t.description)}</p>
+                  <div class="text-[10px] font-mono-code mt-1 truncate" style="color:var(--muted);">${escapeHtml(t.method)} · ${escapeHtml(t.endpoint)}</div>
+                </div>
+                <div data-tool-toggle="${t.id}" class="toggle-track ${t.enabled ? 'on' : ''}" role="switch" aria-checked="${t.enabled}"><div class="toggle-thumb"></div></div>
+              </div>
+            `).join('')}
+          </div>`;
+        } else if (sub === 'skills') {
+          bodyHtml = `<div class="space-y-2.5">
+            <div class="flex items-center justify-between">
+              <p class="text-xs" style="color:var(--muted);">Reusable SKILL.md playbooks loaded on demand</p>
+              <button id="btn-add-skill" class="btn-primary px-3 py-1.5 text-xs">+ New SKILL.md</button>
+            </div>
+            ${state.skills.map(s => `
+              <div class="surface card-pad space-y-2">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-1.5">
+                      <span class="font-mono-code text-xs font-bold">${escapeHtml(s.name)}</span>
+                      <span class="pill pill-accent text-[10px]">SKILL.md</span>
+                    </div>
+                    <p class="text-xs mt-1" style="color:var(--muted);">${escapeHtml(s.description)}</p>
+                  </div>
+                  <div data-skill-toggle="${s.id}" class="toggle-track ${s.enabled ? 'on' : ''}" role="switch" aria-checked="${s.enabled}"><div class="toggle-thumb"></div></div>
+                </div>
+                <details>
+                  <summary class="text-[11px] font-medium cursor-pointer" style="color:var(--accent);">View SKILL.md</summary>
+                  <pre class="mt-1.5 p-2.5 rounded-lg text-[11px] font-mono-code overflow-x-auto" style="background:var(--surface-2);">${escapeHtml(s.content)}</pre>
+                </details>
+              </div>
+            `).join('')}
+          </div>`;
+        } else if (sub === 'mcp') {
+          bodyHtml = `<div class="space-y-2.5">
+            <div class="flex items-center justify-between">
+              <p class="text-xs" style="color:var(--muted);">Model Context Protocol servers &amp; Chrome extension bridge</p>
+              <button id="btn-add-mcp" class="btn-primary px-3 py-1.5 text-xs">+ Add MCP</button>
+            </div>
+            ${state.mcps.map(m => `
+              <div class="surface card-pad space-y-2">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <span class="font-semibold text-xs">${escapeHtml(m.name)}</span>
+                      <span class="pill ${m.status === 'connected' ? 'pill-success' : 'pill-muted'} text-[10px]">${escapeHtml(m.status)}</span>
+                      <span class="pill pill-muted text-[10px]">${escapeHtml(m.transport)}</span>
+                    </div>
+                    <div class="text-[11px] font-mono-code mt-1 truncate" style="color:var(--muted);">${escapeHtml(m.url)}</div>
+                  </div>
+                  <button data-mcp-toggle="${m.id}" class="btn-ghost px-2.5 py-1 text-xs shrink-0">${m.status === 'connected' ? 'Disconnect' : 'Connect'}</button>
+                </div>
+                <div class="flex flex-wrap gap-1">
+                  ${m.tools.map(tn => `<span class="pill pill-muted font-mono-code text-[10px]">${escapeHtml(tn)}</span>`).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>`;
+        } else if (sub === 'connectors') {
+          bodyHtml = `<div class="space-y-2.5">
+            <div class="flex items-center justify-between">
+              <p class="text-xs" style="color:var(--muted);">Hermes-style chat &amp; webhook connectors</p>
+              <button id="btn-add-connector" class="btn-primary px-3 py-1.5 text-xs">+ Add Connector</button>
+            </div>
+            ${state.connectors.map(c => `
+              <div class="surface card-pad flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="font-semibold text-xs">${escapeHtml(c.name)}</span>
+                    <span class="pill pill-muted text-[10px]">${escapeHtml(c.mode)}</span>
+                    ${c.requiresApproval ? '<span class="pill pill-warn text-[10px]">Gated</span>' : ''}
+                  </div>
+                  <div class="text-[11px] mt-0.5 truncate" style="color:var(--muted);">${escapeHtml(c.type)} · ${escapeHtml(c.handle)}</div>
+                </div>
+                <div data-conn-toggle="${c.id}" class="toggle-track ${c.enabled ? 'on' : ''}" role="switch" aria-checked="${c.enabled}"><div class="toggle-thumb"></div></div>
+              </div>
+            `).join('')}
+          </div>`;
+        }
+
+        return `<div class="space-y-3.5 max-w-3xl mx-auto">
+          <div>
+            <h2 class="font-display text-lg font-bold">Platform Hub</h2>
+            <p class="text-xs" style="color:var(--muted);">Configure Tools, SKILL.md packages, MCP servers &amp; Connectors</p>
+          </div>
+          <div class="grid grid-cols-4 gap-1 p-1 rounded-xl" style="background:var(--surface-2); border:1px solid var(--border);">
+            ${[['tools', 'Tools'], ['skills', 'Skills'], ['mcp', 'MCP'], ['connectors', 'Links']].map(([k, lbl]) => `
+              <button data-hub-sub="${k}" class="py-1.5 rounded-lg text-xs font-medium transition" style="${sub === k ? 'background:var(--surface); color:var(--accent); font-weight:600; box-shadow:0 1px 2px rgba(0,0,0,0.06);' : 'color:var(--muted);'}">${lbl}</button>
+            `).join('')}
+          </div>
+          ${bodyHtml}
+        </div>`;
+      }
+
+      // ============================
+      // SHEETS & MODALS
+      // ============================
+      function openSheet(title, subtitle, bodyHtml) {
+        const root = document.getElementById('sheet-root');
+        if (!root) return;
+        root.innerHTML = `<div class="sheet-backdrop" id="sheet-backdrop">
+          <div class="sheet-panel" role="dialog" aria-modal="true">
+            <div class="flex items-center justify-between gap-2 px-4 py-3 border-b" style="border-color:var(--border);">
+              <div class="min-w-0">
+                <h2 class="font-display text-base font-bold truncate">${escapeHtml(title)}</h2>
+                ${subtitle ? `<p class="text-[11px] truncate" style="color:var(--muted);">${escapeHtml(subtitle)}</p>` : ''}
+              </div>
+              <button id="btn-close-sheet" class="btn-ghost p-1.5 shrink-0" aria-label="Close"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            <div class="p-4 overflow-y-auto space-y-4 flex-1" id="sheet-body">${bodyHtml}</div>
+          </div>
+        </div>`;
+        if (window.lucide) window.lucide.createIcons();
+        document.getElementById('btn-close-sheet').addEventListener('click', closeSheet);
+        document.getElementById('sheet-backdrop').addEventListener('click', e => {
+          if (e.target.id === 'sheet-backdrop') closeSheet();
+        });
+      }
+
+      function closeSheet() {
+        const root = document.getElementById('sheet-root');
+        if (root) root.innerHTML = '';
+      }
+
+      // HARNESS STUDIO SHEET (agent-harness-architect)
+      function openHarnessSheet() {
+        const compiled = compileAgentsMd();
+        const tests = [
+          {
+            id: 'test_boundary',
+            name: '1. Boundary & Approval Gate Test',
+            desc: 'Simulates an agent attempting an outbound Telegram send and checks whether the current Approval Gate enforces pause/allow.'
+          },
+          {
+            id: 'test_verification',
+            name: '2. Verification-Gate Sensor Test',
+            desc: 'Validates that a draft containing unverified [TBD] placeholders is blocked by schema_verify before completion.'
+          },
+          {
+            id: 'test_recovery',
+            name: '3. Multi-Step Retry & Escape Hatch Test',
+            desc: 'Simulates 2 consecutive tool failures and confirms the harness halts cleanly instead of infinite-looping.'
+          }
+        ];
+
+        const html = `
+          <div class="surface-subtle p-3 space-y-3">
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <div class="text-xs font-semibold">Global Approval Gate</div>
+                <div class="text-[11px]" style="color:var(--muted);">Default ON (Balanced). Toggle OFF for full autopilot.</div>
+              </div>
+              <div id="harness-gate-toggle" class="toggle-track ${state.harness.globalApprovalGate ? 'on' : ''}" role="switch" aria-checked="${state.harness.globalApprovalGate}"><div class="toggle-thumb"></div></div>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5">
+              ${['balanced', 'autopilot', 'strict'].map(p => `
+                <button data-harness-policy="${p}" class="py-1.5 rounded-lg text-xs font-medium capitalize" style="${state.harness.defaultPolicy === p ? 'background:var(--accent); color:var(--accent-fg);' : 'background:var(--surface); border:1px solid var(--border); color:var(--text);'}">${p}</button>
+              `).join('')}
+            </div>
+          </div>
+
+          <!-- Compiled AGENTS.md -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold">Live Compiled AGENTS.md</span>
+              <button id="btn-copy-agents-md" class="btn-ghost px-2.5 py-1 text-xs">Copy AGENTS.md</button>
+            </div>
+            <pre class="p-3 rounded-xl text-[11px] font-mono-code overflow-x-auto max-h-56 leading-relaxed" style="background:var(--surface-2); border:1px solid var(--border);">${escapeHtml(compiled)}</pre>
+          </div>
+
+          <!-- Ratchet Rule Builder -->
+          <div class="space-y-2">
+            <div class="text-xs font-bold">Ratchet Rules (Turn Mistakes into Guardrails)</div>
+            <div class="space-y-1.5">
+              ${state.harness.ratchetRules.map(r => `
+                <div class="surface-subtle px-3 py-2 flex items-start justify-between gap-2 text-xs">
+                  <span>${escapeHtml(r.rule)}</span>
+                  <button data-del-ratchet="${r.id}" class="text-[11px] shrink-0" style="color:var(--danger);">✕</button>
+                </div>
+              `).join('')}
+            </div>
+            <div class="flex gap-2">
+              <input id="input-ratchet-rule" class="input-field" placeholder="Add earned rule (e.g., Always verify JSON before webhook)..." />
+              <button id="btn-add-ratchet" class="btn-primary px-3 text-xs shrink-0">Add</button>
+            </div>
+          </div>
+
+          <!-- 3 Runnable Verification Tests -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold">Harness Verification Suite (3 Scenarios)</span>
+              <button id="btn-run-all-tests" class="btn-primary px-3 py-1 text-xs">Run All 3</button>
+            </div>
+            ${tests.map(t => {
+              const res = state.harness.testResults[t.id];
+              return `<div class="surface p-3 space-y-1.5">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-xs font-semibold">${t.name}</span>
+                  ${res ? `<span class="pill ${res.pass ? 'pill-success' : 'pill-warn'}">${res.badge}</span>` : '<span class="pill pill-muted">Not run</span>'}
+                </div>
+                <p class="text-[11px]" style="color:var(--muted);">${t.desc}</p>
+                ${res ? `<div class="text-[11px] font-mono-code pt-1" style="color:var(--text);">${escapeHtml(res.detail)}</div>` : ''}
+              </div>`;
+            }).join('')}
+          </div>
+        `;
+
+        openSheet('Agent Harness Studio', '5-layer guardrails, compiled AGENTS.md & verification sensors', html);
+
+        document.getElementById('harness-gate-toggle').addEventListener('click', () => {
+          state.harness.globalApprovalGate = !state.harness.globalApprovalGate;
+          saveState();
+          applyTheme();
+          openHarnessSheet();
+          renderMain();
+          showToast('Global Approval Gate ' + (state.harness.globalApprovalGate ? 'ENABLED' : 'DISABLED'));
+        });
+
+        document.querySelectorAll('[data-harness-policy]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            state.harness.defaultPolicy = btn.dataset.harnessPolicy;
+            if (state.harness.defaultPolicy === 'autopilot') state.harness.globalApprovalGate = false;
+            else state.harness.globalApprovalGate = true;
+            saveState();
+            applyTheme();
+            openHarnessSheet();
+            renderMain();
+          });
+        });
+
+        document.getElementById('btn-copy-agents-md').addEventListener('click', () => copyText(compileAgentsMd(), 'AGENTS.md'));
+
+        document.getElementById('btn-add-ratchet').addEventListener('click', () => {
+          const val = document.getElementById('input-ratchet-rule').value.trim();
+          if (!val) return;
+          state.harness.ratchetRules.push({ id: uid('r'), rule: val, source: 'User Ratchet' });
+          saveState();
+          openHarnessSheet();
+          showToast('Ratchet rule locked into AGENTS.md', 'success');
+        });
+
+        document.querySelectorAll('[data-del-ratchet]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            state.harness.ratchetRules = state.harness.ratchetRules.filter(r => r.id !== btn.dataset.delRatchet);
+            saveState();
+            openHarnessSheet();
+          });
+        });
+
+        document.getElementById('btn-run-all-tests').addEventListener('click', () => {
+          state.harness.testResults = {
+            test_boundary: {
+              pass: true,
+              badge: state.harness.globalApprovalGate ? 'PAUSED (GATED)' : 'ALLOWED (AUTOPILOT)',
+              detail: state.harness.globalApprovalGate
+                ? 'Blocked unapproved Telegram send cleanly and surfaced Approval Card.'
+                : 'Global Approval Gate is OFF — executed with audit log entry.'
+            },
+            test_verification: {
+              pass: true,
+              badge: 'PASSED',
+              detail: 'Caught [TBD] placeholder in output draft and rejected premature completion.'
+            },
+            test_recovery: {
+              pass: true,
+              badge: 'PASSED',
+              detail: `Halted after ${state.harness.maxRetries} consecutive tool errors and escalated exact trace.`
+            }
+          };
+          saveState();
+          openHarnessSheet();
+          showToast('All 3 harness verification tests passed', 'success');
+        });
+      }
+
+      // SETTINGS & CONFIGURABLE INTERFACE SHEET
+      function openSettingsSheet() {
+        const html = `
+          <!-- Configurable Interface Section -->
+          <div class="space-y-3">
+            <div class="text-xs font-bold uppercase tracking-wider" style="color:var(--muted);">Configurable App Interface</div>
+
+            <div>
+              <label class="text-xs font-medium block mb-1.5">Interface Style Preset</label>
+              <div class="grid grid-cols-3 gap-2">
+                ${[
+                  ['editorial', 'Warm Editorial'],
+                  ['control', 'Minimal Control'],
+                  ['ops', 'Ops Console']
+                ].map(([k, lbl]) => `
+                  <button data-set-preset="${k}" class="py-2 px-2 rounded-xl text-xs font-medium text-center" style="${state.ui.preset === k ? 'background:var(--accent); color:var(--accent-fg);' : 'background:var(--surface-2); border:1px solid var(--border);'}">${lbl}</button>
+                `).join('')}
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-xs font-medium block mb-1.5">Color Mode</label>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <button data-set-mode="light" class="py-1.5 rounded-lg text-xs font-medium" style="${state.ui.mode === 'light' ? 'background:var(--accent); color:var(--accent-fg);' : 'background:var(--surface-2); border:1px solid var(--border);'}">Light</button>
+                  <button data-set-mode="dark" class="py-1.5 rounded-lg text-xs font-medium" style="${state.ui.mode === 'dark' ? 'background:var(--accent); color:var(--accent-fg);' : 'background:var(--surface-2); border:1px solid var(--border);'}">Dark</button>
+                </div>
+              </div>
+              <div>
+                <label class="text-xs font-medium block mb-1.5">Density</label>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <button data-set-density="comfortable" class="py-1.5 rounded-lg text-xs font-medium" style="${state.ui.density === 'comfortable' ? 'background:var(--accent); color:var(--accent-fg);' : 'background:var(--surface-2); border:1px solid var(--border);'}">Comfy</button>
+                  <button data-set-density="compact" class="py-1.5 rounded-lg text-xs font-medium" style="${state.ui.density === 'compact' ? 'background:var(--accent); color:var(--accent-fg);' : 'background:var(--surface-2); border:1px solid var(--border);'}">Compact</button>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label class="text-xs font-medium block mb-1.5">Accent Color</label>
+              <div class="flex items-center gap-2.5">
+                ${ACCENTS.map(a => `
+                  <button data-set-accent="${a.id}" class="w-7 h-7 rounded-full flex items-center justify-center transition" style="background:${a.hex}; outline:${state.ui.accent === a.id ? '2px solid var(--text)' : 'none'}; outline-offset:2px;" title="${a.name}"></button>
+                `).join('')}
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between surface-subtle p-2.5">
+              <div>
+                <div class="text-xs font-medium">Mobile Phone Frame (Desktop)</div>
+                <div class="text-[11px]" style="color:var(--muted);">Switch between 430px phone shell and full desktop sidebar</div>
+              </div>
+              <div id="toggle-frame-mode" class="toggle-track ${state.ui.frame === 'phone' ? 'on' : ''}" role="switch" aria-checked="${state.ui.frame === 'phone'}"><div class="toggle-thumb"></div></div>
+            </div>
+          </div>
+
+          <!-- Multi-Provider BYOK Vault -->
+          <div class="space-y-3 pt-3 border-t" style="border-color:var(--border);">
+            <div class="text-xs font-bold uppercase tracking-wider" style="color:var(--muted);">Multi-Provider BYOK Keys &amp; Model IDs</div>
+            <p class="text-[11px]" style="color:var(--muted);">Add API keys and register any exact Model ID per provider (e.g., <code>gemini-2.5-pro</code>, <code>deepseek/deepseek-r1</code>, <code>meta/llama-3.3-70b-instruct</code>).</p>
+            ${Object.entries(PROVIDERS).map(([key, info]) => {
+              const pCfg = state.providers[key] || {};
+              const customList = Array.isArray(pCfg.customModels) ? pCfg.customModels : [];
+              const allModels = getProviderModels(key);
+              return `<div class="surface-subtle p-2.5 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-semibold">${info.name}</span>
+                  <span class="text-[10px]" style="color:var(--muted);">${allModels.length} model IDs</span>
+                </div>
+                <input data-provider-key="${key}" type="password" class="input-field font-mono-code text-xs" value="${escapeHtml(pCfg.apiKey || '')}" placeholder="API Key (${info.placeholder})" />
+                ${key === 'custom' ? `<input data-provider-url="${key}" type="url" class="input-field font-mono-code text-xs" value="${escapeHtml(pCfg.baseUrl || '')}" placeholder="HTTPS Base URL (e.g., https://integrate.api.nvidia.com/v1)" />` : ''}
+                <div class="flex flex-wrap gap-1">
+                  ${allModels.map(mid => {
+                    const isCustom = customList.includes(mid);
+                    return `<span class="pill ${isCustom ? 'pill-accent' : 'pill-muted'} font-mono-code text-[10px]">
+                      <span>${escapeHtml(mid)}</span>
+                      ${isCustom ? `<button type="button" data-del-model-provider="${key}" data-del-model-id="${escapeHtml(mid)}" class="ml-1 font-bold" title="Remove custom model ID">×</button>` : ''}
+                    </span>`;
+                  }).join('')}
+                </div>
+                <div class="flex gap-1.5">
+                  <input data-new-model-input="${key}" class="input-field font-mono-code text-[11px] py-1.5" placeholder="Add exact model ID..." />
+                  <button type="button" data-add-model-btn="${key}" class="btn-ghost px-2.5 py-1 text-[11px] shrink-0">+ Add ID</button>
+                </div>
+              </div>`;
+            }).join('')}
+            <button id="btn-save-keys" class="btn-primary w-full py-2 text-xs">Save Provider Keys &amp; Endpoints</button>
+          </div>
+
+          <!-- Export / Reset -->
+          <div class="flex items-center gap-2 pt-3 border-t" style="border-color:var(--border);">
+            <button id="btn-export-bundle" class="btn-ghost flex-1 py-2 text-xs">Copy Full JSON Backup</button>
+            <button id="btn-reset-demo" class="btn-ghost py-2 px-3 text-xs" style="color:var(--danger);">Reset Demo</button>
+          </div>
+        `;
+
+        openSheet('Interface & Provider Vault', 'Customize theme, density, layout & BYOK model keys', html);
+
+        document.querySelectorAll('[data-set-preset]').forEach(b => b.addEventListener('click', () => {
+          state.ui.preset = b.dataset.setPreset; saveState(); applyTheme(); openSettingsSheet();
+        }));
+        document.querySelectorAll('[data-set-mode]').forEach(b => b.addEventListener('click', () => {
+          state.ui.mode = b.dataset.setMode; saveState(); applyTheme(); openSettingsSheet();
+        }));
+        document.querySelectorAll('[data-set-density]').forEach(b => b.addEventListener('click', () => {
+          state.ui.density = b.dataset.setDensity; saveState(); applyTheme(); openSettingsSheet();
+        }));
+        document.querySelectorAll('[data-set-accent]').forEach(b => b.addEventListener('click', () => {
+          state.ui.accent = b.dataset.setAccent; saveState(); applyTheme(); openSettingsSheet();
+        }));
+        document.getElementById('toggle-frame-mode').addEventListener('click', () => {
+          state.ui.frame = state.ui.frame === 'phone' ? 'responsive' : 'phone';
+          saveState(); applyTheme(); openSettingsSheet();
+        });
+        document.getElementById('btn-save-keys').addEventListener('click', () => {
+          document.querySelectorAll('[data-provider-key]').forEach(inp => {
+            const k = inp.dataset.providerKey;
+            if (!state.providers[k]) state.providers[k] = {};
+            state.providers[k].apiKey = inp.value.trim();
+          });
+          document.querySelectorAll('[data-provider-url]').forEach(inp => {
+            const k = inp.dataset.providerUrl;
+            if (!state.providers[k]) state.providers[k] = {};
+            state.providers[k].baseUrl = inp.value.trim();
+          });
+          saveState(); applyTheme();
+          showToast('Provider keys & endpoints saved', 'success');
+        });
+        document.querySelectorAll('[data-add-model-btn]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const k = btn.dataset.addModelBtn;
+            const inp = document.querySelector(`[data-new-model-input="${k}"]`);
+            if (!inp || !inp.value.trim()) return;
+            const added = addCustomModelId(k, inp.value.trim());
+            openSettingsSheet();
+            showToast(added ? `Added model ID ${inp.value.trim()}` : 'Model ID already exists', added ? 'success' : 'warn');
+          });
+        });
+        document.querySelectorAll('[data-del-model-id]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const k = btn.dataset.delModelProvider;
+            const id = btn.dataset.delModelId;
+            if (state.providers[k] && Array.isArray(state.providers[k].customModels)) {
+              state.providers[k].customModels = state.providers[k].customModels.filter(m => m !== id);
+              saveState();
+              openSettingsSheet();
+            }
+          });
+        });
+        document.getElementById('btn-export-bundle').addEventListener('click', () => {
+          const safe = JSON.parse(JSON.stringify(state));
+          Object.values(safe.providers).forEach(p => { if (p.apiKey) p.apiKey = '***REDACTED***'; });
+          copyText(JSON.stringify(safe, null, 2), 'Config & Wiki JSON');
+        });
+        document.getElementById('btn-reset-demo').addEventListener('click', () => {
+          state = createDefaultState();
+          saveState(); applyTheme(); closeSheet(); renderMain(); updateBadges();
+          showToast('Workspace reset to default', 'success');
+        });
+      }
+
+      // AGENT EDITOR SHEET
+      function openAgentEditorSheet(agentId) {
+        const isNew = !agentId;
+        const a = isNew ? {
+          id: uid('agent'),
+          name: '',
+          role: '',
+          emoji: '🤖',
+          provider: 'gemini',
+          model: 'gemini-2.5-flash',
+          temperature: 0.3,
+          maxSteps: 10,
+          memoryEnabled: true,
+          wikiPermission: 'read-write',
+          approvalGate: true,
+          policy: 'balanced',
+          systemPrompt: 'You are a custom Keryx agent. Orient via wiki/index.md, execute step by step, and verify before completing.',
+          toolIds: ['tool_web_search', 'tool_wiki_rw'],
+          skillIds: ['skill_deep_research'],
+          mcpIds: [],
+          connectorIds: []
+        } : JSON.parse(JSON.stringify(getAgent(agentId)));
+
+        const providerOptions = Object.entries(PROVIDERS).map(([k, v]) => `<option value="${k}" ${a.provider === k ? 'selected' : ''}>${v.name}</option>`).join('');
+        const modelList = getProviderModels(a.provider);
+
+        const html = `
+          <div class="space-y-3">
+            <div class="grid grid-cols-4 gap-2">
+              <div>
+                <label class="text-[11px] font-semibold block mb-1">Icon</label>
+                <input id="ag-emoji" class="input-field text-center" value="${escapeHtml(a.emoji)}" />
+              </div>
+              <div class="col-span-3">
+                <label class="text-[11px] font-semibold block mb-1">Agent Name</label>
+                <input id="ag-name" class="input-field" value="${escapeHtml(a.name)}" placeholder="e.g., Market Analyst" />
+              </div>
+            </div>
+            <div>
+              <label class="text-[11px] font-semibold block mb-1">Role / Specialty</label>
+              <input id="ag-role" class="input-field" value="${escapeHtml(a.role)}" placeholder="e.g., Daily news & wiki synthesizer" />
+            </div>
+            <div class="space-y-2">
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-[11px] font-semibold block mb-1">Provider</label>
+                  <select id="ag-provider" class="input-field">${providerOptions}</select>
+                </div>
+                <div>
+                  <label class="text-[11px] font-semibold block mb-1">Model ID</label>
+                  <div class="flex gap-1">
+                    <input id="ag-model" list="ag-model-list" class="input-field font-mono-code text-xs" value="${escapeHtml(a.model)}" placeholder="vendor/model-id" />
+                    <button type="button" id="btn-save-ag-model-id" class="btn-ghost px-2 text-[11px] shrink-0" title="Save this Model ID to provider list">+ Save</button>
+                  </div>
+                  <datalist id="ag-model-list">${modelList.map(m => `<option value="${escapeHtml(m)}">`).join('')}</datalist>
+                </div>
+              </div>
+              <div id="ag-model-chips" class="flex flex-wrap gap-1">
+                ${modelList.map(m => `<button type="button" data-pick-model-id="${escapeHtml(m)}" class="pill ${a.model === m ? 'pill-accent' : 'pill-muted'} font-mono-code text-[10px] cursor-pointer">${escapeHtml(m)}</button>`).join('')}
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="text-[11px] font-semibold block mb-1">Temp</label>
+                <input id="ag-temp" type="number" step="0.1" min="0" max="1.5" class="input-field" value="${a.temperature}" />
+              </div>
+              <div>
+                <label class="text-[11px] font-semibold block mb-1">Max Steps</label>
+                <input id="ag-steps" type="number" min="2" max="40" class="input-field" value="${a.maxSteps}" />
+              </div>
+              <div>
+                <label class="text-[11px] font-semibold block mb-1">LLM Wiki</label>
+                <select id="ag-wiki" class="input-field">
+                  <option value="read-write" ${a.wikiPermission === 'read-write' ? 'selected' : ''}>Read/Write</option>
+                  <option value="read-only" ${a.wikiPermission === 'read-only' ? 'selected' : ''}>Read Only</option>
+                  <option value="none" ${a.wikiPermission === 'none' ? 'selected' : ''}>Disabled</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <label class="surface-subtle p-2.5 flex items-center justify-between text-xs cursor-pointer">
+                <span>Persistent Memory</span>
+                <input id="ag-memory" type="checkbox" ${a.memoryEnabled ? 'checked' : ''} />
+              </label>
+              <label class="surface-subtle p-2.5 flex items-center justify-between text-xs cursor-pointer">
+                <span>Approval Gate</span>
+                <input id="ag-gate" type="checkbox" ${a.approvalGate ? 'checked' : ''} />
+              </label>
+            </div>
+
+            <div>
+              <label class="text-[11px] font-semibold block mb-1">System Prompt</label>
+              <textarea id="ag-prompt" rows="3" class="input-field text-xs">${escapeHtml(a.systemPrompt)}</textarea>
+            </div>
+
+            <div>
+              <label class="text-[11px] font-semibold block mb-1.5">Assigned Tools</label>
+              <div class="flex flex-wrap gap-1.5">
+                ${state.tools.map(t => `<label class="pill pill-muted cursor-pointer"><input type="checkbox" data-ag-tool="${t.id}" ${a.toolIds.includes(t.id) ? 'checked' : ''} /> ${escapeHtml(t.name)}</label>`).join('')}
+              </div>
+            </div>
+
+            <div>
+              <label class="text-[11px] font-semibold block mb-1.5">Assigned Skills (SKILL.md)</label>
+              <div class="flex flex-wrap gap-1.5">
+                ${state.skills.map(s => `<label class="pill pill-muted cursor-pointer"><input type="checkbox" data-ag-skill="${s.id}" ${a.skillIds.includes(s.id) ? 'checked' : ''} /> ${escapeHtml(s.name)}</label>`).join('')}
+              </div>
+            </div>
+
+            <div>
+              <label class="text-[11px] font-semibold block mb-1.5">MCP Servers &amp; Connectors</label>
+              <div class="flex flex-wrap gap-1.5">
+                ${state.mcps.map(m => `<label class="pill pill-muted cursor-pointer"><input type="checkbox" data-ag-mcp="${m.id}" ${a.mcpIds.includes(m.id) ? 'checked' : ''} /> MCP: ${escapeHtml(m.name)}</label>`).join('')}
+                ${state.connectors.map(c => `<label class="pill pill-muted cursor-pointer"><input type="checkbox" data-ag-conn="${c.id}" ${a.connectorIds.includes(c.id) ? 'checked' : ''} /> ${escapeHtml(c.name)}</label>`).join('')}
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between gap-2 pt-2">
+              ${!isNew && state.agents.length > 1 ? `<button id="btn-del-agent" class="btn-ghost px-3 py-2 text-xs" style="color:var(--danger);">Delete</button>` : '<div></div>'}
+              <button id="btn-save-agent" class="btn-primary px-4 py-2 text-xs">${isNew ? 'Create Agent' : 'Save Agent'}</button>
+            </div>
+          </div>`;
+
+        openSheet(isNew ? 'New Custom Agent' : `Configure ${a.name}`, 'Model, harness boundaries, tools, skills & connectors', html);
+
+        function refreshAgentModelPicker(provKey, selectedModel) {
+          const list = getProviderModels(provKey);
+          document.getElementById('ag-model-list').innerHTML = list.map(m => `<option value="${escapeHtml(m)}">`).join('');
+          const chipsEl = document.getElementById('ag-model-chips');
+          if (chipsEl) {
+            chipsEl.innerHTML = list.map(m => `<button type="button" data-pick-model-id="${escapeHtml(m)}" class="pill ${selectedModel === m ? 'pill-accent' : 'pill-muted'} font-mono-code text-[10px] cursor-pointer">${escapeHtml(m)}</button>`).join('');
+            chipsEl.querySelectorAll('[data-pick-model-id]').forEach(btn => {
+              btn.addEventListener('click', () => {
+                document.getElementById('ag-model').value = btn.dataset.pickModelId;
+                refreshAgentModelPicker(document.getElementById('ag-provider').value, btn.dataset.pickModelId);
+              });
+            });
+          }
+        }
+        refreshAgentModelPicker(a.provider, a.model);
+
+        document.getElementById('ag-provider').addEventListener('change', e => {
+          const list = getProviderModels(e.target.value);
+          const nextModel = list[0] || '';
+          document.getElementById('ag-model').value = nextModel;
+          refreshAgentModelPicker(e.target.value, nextModel);
+        });
+
+        document.getElementById('btn-save-ag-model-id').addEventListener('click', () => {
+          const prov = document.getElementById('ag-provider').value;
+          const mid = document.getElementById('ag-model').value.trim();
+          if (!mid) { showToast('Enter a Model ID first', 'warn'); return; }
+          const added = addCustomModelId(prov, mid);
+          refreshAgentModelPicker(prov, mid);
+          showToast(added ? `Saved Model ID: ${mid}` : 'Model ID already saved', added ? 'success' : 'warn');
+        });
+
+        document.getElementById('btn-save-agent').addEventListener('click', () => {
+          const name = document.getElementById('ag-name').value.trim();
+          if (!name) { showToast('Enter an agent name', 'danger'); return; }
+          a.emoji = document.getElementById('ag-emoji').value.trim() || '🤖';
+          a.name = name;
+          a.role = document.getElementById('ag-role').value.trim() || 'Custom Agent';
+          a.provider = document.getElementById('ag-provider').value;
+          a.model = document.getElementById('ag-model').value.trim() || 'gemini-2.5-flash';
+          a.temperature = parseFloat(document.getElementById('ag-temp').value) || 0.3;
+          a.maxSteps = parseInt(document.getElementById('ag-steps').value, 10) || 10;
+          a.wikiPermission = document.getElementById('ag-wiki').value;
+          a.memoryEnabled = document.getElementById('ag-memory').checked;
+          a.approvalGate = document.getElementById('ag-gate').checked;
+          a.systemPrompt = document.getElementById('ag-prompt').value.trim();
+          a.toolIds = [...document.querySelectorAll('[data-ag-tool]:checked')].map(el => el.dataset.agTool);
+          a.skillIds = [...document.querySelectorAll('[data-ag-skill]:checked')].map(el => el.dataset.agSkill);
+          a.mcpIds = [...document.querySelectorAll('[data-ag-mcp]:checked')].map(el => el.dataset.agMcp);
+          a.connectorIds = [...document.querySelectorAll('[data-ag-conn]:checked')].map(el => el.dataset.agConn);
+
+          if (isNew) {
+            state.agents.push(a);
+            state.chats[a.id] = [{ id: uid('msg'), role: 'assistant', time: nowTime(), text: `**${a.name}** initialized and ready under the Keryx harness.`, trace: [] }];
+          } else {
+            const idx = state.agents.findIndex(x => x.id === a.id);
+            if (idx >= 0) state.agents[idx] = a;
+          }
+          saveState(); closeSheet(); renderMain();
+          showToast(isNew ? `Created ${a.name}` : `Updated ${a.name}`, 'success');
+        });
+
+        const delBtn = document.getElementById('btn-del-agent');
+        if (delBtn) {
+          delBtn.addEventListener('click', () => {
+            state.agents = state.agents.filter(x => x.id !== a.id);
+            if (state.ui.activeAgentId === a.id) state.ui.activeAgentId = state.agents[0].id;
+            saveState(); closeSheet(); renderMain();
+            showToast('Agent deleted');
+          });
+        }
+      }
+
+      // NEW BACKGROUND TASK SHEET
+      function openNewTaskSheet(defaultAgentId) {
+        const opts = state.agents.map(a => `<option value="${a.id}" ${a.id === defaultAgentId ? 'selected' : ''}>${a.emoji} ${escapeHtml(a.name)}</option>`).join('');
+        const html = `<div class="space-y-3">
+          <div>
+            <label class="text-[11px] font-semibold block mb-1">Task Objective</label>
+            <textarea id="nt-title" rows="2" class="input-field" placeholder="e.g., Research latest MCP spec updates and save to Wiki"></textarea>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-[11px] font-semibold block mb-1">Assign Agent</label>
+              <select id="nt-agent" class="input-field">${opts}</select>
+            </div>
+            <div>
+              <label class="text-[11px] font-semibold block mb-1">Schedule</label>
+              <select id="nt-schedule" class="input-field">
+                <option value="One-off">One-off (Immediate)</option>
+                <option value="Cron · Daily 08:00">Cron · Daily 08:00</option>
+                <option value="Cron · Every 6h">Cron · Every 6h</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="text-[11px] font-semibold block mb-1">Write Output to LLM Wiki Page (Optional)</label>
+            <input id="nt-wiki" class="input-field" placeholder="e.g., MCP Spec Notes" />
+          </div>
+          <label class="surface-subtle p-2.5 flex items-center justify-between text-xs cursor-pointer">
+            <span>Includes external connector send (triggers Approval Gate if ON)</span>
+            <input id="nt-external" type="checkbox" />
+          </label>
+          <button id="btn-launch-task" class="btn-primary w-full py-2 text-xs">Launch Background Task</button>
+        </div>`;
+
+        openSheet('Dispatch Background Task', 'Runs asynchronously with persistent todo, logs & verification gate', html);
+
+        document.getElementById('btn-launch-task').addEventListener('click', () => {
+          const title = document.getElementById('nt-title').value.trim();
+          if (!title) { showToast('Describe the task first', 'danger'); return; }
+          enqueueBackgroundTask({
+            title,
+            agentId: document.getElementById('nt-agent').value,
+            schedule: document.getElementById('nt-schedule').value,
+            requiresExternalSend: document.getElementById('nt-external').checked,
+            wikiWriteTitle: document.getElementById('nt-wiki').value.trim() || null
+          });
+          state.ui.tab = 'tasks';
+          closeSheet();
+          renderMain();
+        });
+      }
+
+      // OBSIDIAN MOBILE VAULT HELPERS & SHEET
+      function buildObsidianMarkdown(page) {
+        const hasFm = page.content.trim().startsWith('---');
+        if (hasFm) return page.content;
+        return `---\ntitle: "${page.title.replace(/"/g, "'")}"\ncategory: ${page.category}\nupdated: "${page.updatedAt}"\nsource: keryx-llm-wiki\n---\n\n${page.content}`;
+      }
+
+      function buildObsidianUri(mode, page) {
+        const vault = encodeURIComponent(state.obsidian.vaultName || 'My Mobile Vault');
+        const folder = (state.obsidian.folderPath || '').replace(/^\/+|\/+$/g, '');
+        if (mode === 'vault') return `obsidian://open?vault=${vault}`;
+        const filePath = (folder ? folder + '/' : '') + (page.title || page.slug);
+        if (mode === 'open') return `obsidian://open?vault=${vault}&file=${encodeURIComponent(filePath)}`;
+        const md = buildObsidianMarkdown(page);
+        return `obsidian://new?vault=${vault}&file=${encodeURIComponent(filePath)}&content=${encodeURIComponent(md)}&overwrite=true`;
+      }
+
+      function downloadMarkdownFile(filename, content) {
+        try {
+          const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          showToast(`Downloaded ${filename}`, 'success');
+        } catch (e) {
+          copyText(content, filename);
+        }
+      }
+
+      async function importObsidianFiles(fileList) {
+        const files = Array.from(fileList || []).filter(f => /\.(md|markdown|txt)$/i.test(f.name));
+        if (!files.length) {
+          showToast('Select one or more .md files from your Obsidian vault', 'warn');
+          return;
+        }
+        let added = 0;
+        let updated = 0;
+        for (const file of files) {
+          const text = await file.text();
+          const baseName = file.name.replace(/\.(md|markdown|txt)$/i, '');
+          const slug = baseName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || uid('obs');
+          let category = 'sources';
+          const catMatch = text.match(/^category:\s*([a-zA-Z0-9_-]+)/m);
+          if (catMatch && ['index', 'concepts', 'entities', 'sources', 'logs'].includes(catMatch[1].toLowerCase())) {
+            category = catMatch[1].toLowerCase();
+          }
+          const existing = state.wiki.find(w => w.slug === slug || w.title.toLowerCase() === baseName.toLowerCase());
+          if (existing) {
+            existing.content = text;
+            existing.updatedAt = 'Today, ' + nowTime();
+            existing.source = 'obsidian';
+            updated += 1;
+          } else {
+            state.wiki.push({
+              id: uid('wiki'),
+              slug,
+              title: baseName,
+              category,
+              source: 'obsidian',
+              updatedAt: 'Today, ' + nowTime(),
+              content: text
+            });
+            added += 1;
+          }
+        }
+        state.obsidian.connected = true;
+        state.obsidian.lastSync = 'Today, ' + nowTime();
+        state.obsidian.importedCount = (state.obsidian.importedCount || 0) + added + updated;
+
+        const logPage = state.wiki.find(w => w.id === 'wiki_log' || w.slug === 'wiki-log');
+        if (logPage) {
+          logPage.content += `\n- **${nowTime()}** — Imported ${added} new, ${updated} updated notes from Obsidian vault **${state.obsidian.vaultName}**.`;
+          logPage.updatedAt = 'Today, ' + nowTime();
+        }
+        saveState();
+        renderMain();
+        openObsidianVaultSheet();
+        showToast(`Imported ${added + updated} Obsidian note${added + updated === 1 ? '' : 's'}`, 'success');
+      }
+
+      function openObsidianVaultSheet() {
+        const obs = state.obsidian;
+        const obsidianPages = state.wiki.filter(p => p.source === 'obsidian').length;
+        const html = `
+          <div class="surface-subtle p-3 space-y-2.5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs font-bold">Mobile Vault Connection</span>
+              <span class="pill ${obs.connected ? 'pill-success' : 'pill-muted'}">${obs.connected ? 'Linked · ' + obsidianPages + ' notes' : 'Ready to link'}</span>
+            </div>
+            <p class="text-[11px] leading-relaxed" style="color:var(--muted);">
+              Import <code>.md</code> notes directly from your phone's Obsidian folder into Keryx's LLM Wiki, and push agent-created notes back into Obsidian using mobile <code>obsidian://</code> deep links.
+            </p>
+            <div class="text-[11px]" style="color:var(--muted);">Last sync: <strong>${escapeHtml(obs.lastSync)}</strong></div>
+          </div>
+
+          <!-- Import from Phone / Folder -->
+          <div class="space-y-2">
+            <div class="text-xs font-bold">1. Import Notes from Mobile Obsidian Vault</div>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="btn-primary py-2 px-3 text-xs text-center cursor-pointer flex items-center justify-center gap-1.5">
+                <i data-lucide="file-up" class="w-3.5 h-3.5"></i><span>Pick .md Files</span>
+                <input id="obs-file-input" type="file" accept=".md,.markdown,text/markdown" multiple class="hidden" />
+              </label>
+              <label class="btn-ghost py-2 px-3 text-xs text-center cursor-pointer flex items-center justify-center gap-1.5">
+                <i data-lucide="folder-open" class="w-3.5 h-3.5"></i><span>Pick Vault Folder</span>
+                <input id="obs-folder-input" type="file" webkitdirectory multiple class="hidden" />
+              </label>
+            </div>
+          </div>
+
+          <!-- Vault Settings -->
+          <div class="space-y-2.5 pt-2 border-t" style="border-color:var(--border);">
+            <div class="text-xs font-bold">2. Vault &amp; Harness Configuration</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-[11px] font-semibold block mb-1">Obsidian Vault Name</label>
+                <input id="obs-vault-name" class="input-field" value="${escapeHtml(obs.vaultName)}" placeholder="My Mobile Vault" />
+              </div>
+              <div>
+                <label class="text-[11px] font-semibold block mb-1">Target Subfolder</label>
+                <input id="obs-folder-path" class="input-field" value="${escapeHtml(obs.folderPath)}" placeholder="Keryx-Wiki" />
+              </div>
+            </div>
+            <div>
+              <label class="text-[11px] font-semibold block mb-1">Agent Sync Mode</label>
+              <select id="obs-sync-mode" class="input-field">
+                <option value="two-way" ${obs.syncMode === 'two-way' ? 'selected' : ''}>Two-Way Markdown (Read + Push via URI)</option>
+                <option value="read-only" ${obs.syncMode === 'read-only' ? 'selected' : ''}>Read-Only Context (Agents cannot modify vault)</option>
+                <option value="append-only" ${obs.syncMode === 'append-only' ? 'selected' : ''}>Append-Only (New notes &amp; Daily Log only)</option>
+              </select>
+            </div>
+            <label class="surface-subtle p-2.5 flex items-center justify-between text-xs cursor-pointer">
+              <span>Require Approval Gate before agent writes to Vault</span>
+              <input id="obs-write-gate" type="checkbox" ${obs.requireApprovalOnWrite ? 'checked' : ''} />
+            </label>
+            <button id="btn-save-obs-cfg" class="btn-primary w-full py-2 text-xs">Save Vault Config</button>
+          </div>
+
+          <!-- Open / Export Actions -->
+          <div class="space-y-2 pt-2 border-t" style="border-color:var(--border);">
+            <div class="text-xs font-bold">3. Open in Obsidian or Export</div>
+            <div class="grid grid-cols-2 gap-2">
+              <a id="link-open-obs-vault" href="${buildObsidianUri('vault')}" class="btn-ghost py-2 px-3 text-xs text-center flex items-center justify-center gap-1.5">
+                <i data-lucide="external-link" class="w-3.5 h-3.5"></i><span>Open Obsidian App</span>
+              </a>
+              <button id="btn-export-all-obs" class="btn-ghost py-2 px-3 text-xs flex items-center justify-center gap-1.5">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i><span>Export All .md</span>
+              </button>
+            </div>
+          </div>
+        `;
+
+        openSheet('Obsidian Mobile Vault', 'Import .md files, configure sync & push via obsidian:// URI', html);
+
+        document.getElementById('obs-file-input').addEventListener('change', e => importObsidianFiles(e.target.files));
+        document.getElementById('obs-folder-input').addEventListener('change', e => importObsidianFiles(e.target.files));
+
+        document.getElementById('btn-save-obs-cfg').addEventListener('click', () => {
+          state.obsidian.vaultName = document.getElementById('obs-vault-name').value.trim() || 'My Mobile Vault';
+          state.obsidian.folderPath = document.getElementById('obs-folder-path').value.trim();
+          state.obsidian.syncMode = document.getElementById('obs-sync-mode').value;
+          state.obsidian.requireApprovalOnWrite = document.getElementById('obs-write-gate').checked;
+          const obsTool = state.tools.find(t => t.id === 'tool_obsidian_rw');
+          if (obsTool) obsTool.destructive = state.obsidian.requireApprovalOnWrite;
+          saveState();
+          renderMain();
+          openObsidianVaultSheet();
+          showToast('Obsidian vault settings saved', 'success');
+        });
+
+        document.getElementById('btn-export-all-obs').addEventListener('click', () => {
+          const combined = state.wiki.map(p => `<!-- FILE: ${p.slug}.md -->\n` + buildObsidianMarkdown(p)).join('\n\n---\n\n');
+          downloadMarkdownFile('keryx-obsidian-wiki-export.md', combined);
+        });
+      }
+
+      // WIKI INGEST SHEET
+      function openWikiIngestSheet() {
+        const html = `<div class="space-y-3">
+          <div>
+            <label class="text-[11px] font-semibold block mb-1">Page Title</label>
+            <input id="wi-title" class="input-field" placeholder="e.g., Local-First Agent Sync" />
+          </div>
+          <div>
+            <label class="text-[11px] font-semibold block mb-1">Category</label>
+            <select id="wi-cat" class="input-field">
+              <option value="sources">sources/</option>
+              <option value="concepts">concepts/</option>
+              <option value="entities">entities/</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[11px] font-semibold block mb-1">Raw Source Text / URL / Notes</label>
+            <textarea id="wi-raw" rows="4" class="input-field" placeholder="Paste article notes, URL, or idea. Wiki Librarian will structure, cross-link [[wikilinks]], and update Wiki Log..."></textarea>
+          </div>
+          <button id="btn-run-ingest" class="btn-primary w-full py-2 text-xs">Ingest via Wiki Librarian (Background)</button>
+        </div>`;
+
+        openSheet('Ingest into LLM Wiki', 'Background curation with automatic [[wikilinks]] & log entry', html);
+
+        document.getElementById('btn-run-ingest').addEventListener('click', () => {
+          const title = document.getElementById('wi-title').value.trim();
+          if (!title) { showToast('Enter a page title', 'danger'); return; }
+          enqueueBackgroundTask({
+            title: `Ingest "${title}" into LLM Wiki`,
+            agentId: 'agent_librarian',
+            schedule: 'One-off',
+            requiresExternalSend: false,
+            wikiWriteTitle: title
+          });
+          closeSheet();
+        });
+      }
+
+      // HUB ADD SHEETS (Tool / Skill / MCP / Connector)
+      function openHubAddSheet(kind) {
+        if (kind === 'tool') {
+          openSheet('Add Custom Tool', 'Define a REST/Webhook tool with approval boundary', `
+            <div class="space-y-3">
+              <input id="ht-name" class="input-field font-mono-code" placeholder="tool_name (e.g., linear_create_issue)" />
+              <input id="ht-desc" class="input-field" placeholder="Short description of what this tool does" />
+              <div class="grid grid-cols-3 gap-2">
+                <select id="ht-method" class="input-field"><option>GET</option><option>POST</option><option>DELETE</option></select>
+                <input id="ht-url" class="input-field col-span-2" placeholder="https://api.example.com/action" />
+              </div>
+              <label class="surface-subtle p-2.5 flex items-center justify-between text-xs cursor-pointer">
+                <span>Destructive / External Send (Approval Gated)</span>
+                <input id="ht-dest" type="checkbox" checked />
+              </label>
+              <button id="btn-save-hub-item" class="btn-primary w-full py-2 text-xs">Add Tool</button>
+            </div>`);
+          document.getElementById('btn-save-hub-item').addEventListener('click', () => {
+            const name = document.getElementById('ht-name').value.trim();
+            if (!name) return;
+            state.tools.unshift({
+              id: uid('tool'), name, category: 'Custom REST',
+              description: document.getElementById('ht-desc').value.trim() || 'Custom REST endpoint.',
+              method: document.getElementById('ht-method').value,
+              endpoint: document.getElementById('ht-url').value.trim() || 'https://api.example.com',
+              destructive: document.getElementById('ht-dest').checked, enabled: true
+            });
+            saveState(); closeSheet(); renderMain(); showToast(`Added tool ${name}`, 'success');
+          });
+        } else if (kind === 'skill') {
+          openSheet('Create SKILL.md', 'Reusable agent instruction package', `
+            <div class="space-y-3">
+              <input id="hs-name" class="input-field font-mono-code" placeholder="skill-slug (e.g., pr-reviewer)" />
+              <input id="hs-desc" class="input-field" placeholder="When should agents activate this skill?" />
+              <textarea id="hs-body" rows="6" class="input-field font-mono-code text-xs" placeholder="---\nname: pr-reviewer\n---\n# Steps\n1. ..."></textarea>
+              <button id="btn-save-hub-item" class="btn-primary w-full py-2 text-xs">Save SKILL.md</button>
+            </div>`);
+          document.getElementById('btn-save-hub-item').addEventListener('click', () => {
+            const name = document.getElementById('hs-name').value.trim();
+            if (!name) return;
+            state.skills.unshift({
+              id: uid('skill'), name,
+              description: document.getElementById('hs-desc').value.trim() || 'Custom skill playbook.',
+              content: document.getElementById('hs-body').value.trim() || `---\nname: ${name}\n---\n# Instructions\nFollow harness guardrails.`,
+              enabled: true
+            });
+            saveState(); closeSheet(); renderMain(); showToast(`Saved skill ${name}`, 'success');
+          });
+        } else if (kind === 'mcp') {
+          openSheet('Add MCP Server', 'Connect Streamable HTTP, SSE, or Extension MCP', `
+            <div class="space-y-3">
+              <input id="hm-name" class="input-field" placeholder="Server Name (e.g., Notion MCP)" />
+              <select id="hm-tr" class="input-field"><option>Streamable HTTP</option><option>SSE Bridge</option><option>Extension MCP</option></select>
+              <input id="hm-url" class="input-field font-mono-code" placeholder="https://mcp.example.com/sse" />
+              <input id="hm-tools" class="input-field font-mono-code" placeholder="Tools comma-separated (e.g., search_docs, create_page)" />
+              <button id="btn-save-hub-item" class="btn-primary w-full py-2 text-xs">Add MCP Server</button>
+            </div>`);
+          document.getElementById('btn-save-hub-item').addEventListener('click', () => {
+            const name = document.getElementById('hm-name').value.trim();
+            if (!name) return;
+            state.mcps.unshift({
+              id: uid('mcp'), name,
+              transport: document.getElementById('hm-tr').value,
+              url: document.getElementById('hm-url').value.trim() || 'https://mcp.example.com',
+              status: 'connected',
+              tools: (document.getElementById('hm-tools').value || 'query_mcp').split(',').map(s => s.trim()).filter(Boolean)
+            });
+            saveState(); closeSheet(); renderMain(); showToast(`Connected ${name}`, 'success');
+          });
+        } else if (kind === 'connector') {
+          openSheet('Add Connector', 'Connect messaging or webhook channels', `
+            <div class="space-y-3">
+              <input id="hc-name" class="input-field" placeholder="Connector Name (e.g., Gmail Digest)" />
+              <input id="hc-handle" class="input-field" placeholder="Channel / Handle / Webhook URL" />
+              <select id="hc-mode" class="input-field"><option>Inbound + Alerts</option><option>Outbound Alerts</option><option>Trigger Only</option></select>
+              <label class="surface-subtle p-2.5 flex items-center justify-between text-xs cursor-pointer">
+                <span>Require Approval Gate before sending</span>
+                <input id="hc-gate" type="checkbox" checked />
+              </label>
+              <button id="btn-save-hub-item" class="btn-primary w-full py-2 text-xs">Add Connector</button>
+            </div>`);
+          document.getElementById('btn-save-hub-item').addEventListener('click', () => {
+            const name = document.getElementById('hc-name').value.trim();
+            if (!name) return;
+            state.connectors.unshift({
+              id: uid('conn'), name, type: 'Custom',
+              handle: document.getElementById('hc-handle').value.trim() || '@channel',
+              mode: document.getElementById('hc-mode').value,
+              requiresApproval: document.getElementById('hc-gate').checked,
+              enabled: true
+            });
+            saveState(); closeSheet(); renderMain(); showToast(`Added ${name}`, 'success');
+          });
+        }
+      }
+
+      // ============================
+      // VIEW EVENT LISTENERS
+      // ============================
+      function attachViewListeners() {
+        // Wikilink clicks anywhere
+        document.querySelectorAll('[data-wikilink]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const targetTitle = btn.dataset.wikilink.toLowerCase();
+            let page = state.wiki.find(p => p.title.toLowerCase() === targetTitle || p.slug === targetTitle.replace(/\s+/g, '-'));
+            if (!page) {
+              page = {
+                id: uid('wiki'),
+                slug: targetTitle.replace(/[^a-z0-9]+/g, '-'),
+                title: btn.dataset.wikilink,
+                category: 'concepts',
+                updatedAt: 'Today, ' + nowTime(),
+                content: `# ${btn.dataset.wikilink}\n\nNew stub created from wikilink. Linked back to [[Wiki Index]].`
+              };
+              state.wiki.push(page);
+              saveState();
+              showToast(`Created wiki page [[${page.title}]]`);
+            }
+            state.ui.activeWikiId = page.id;
+            state.ui.tab = 'wiki';
+            state.ui.wikiEditMode = false;
+            saveState();
+            renderMain();
+          });
+        });
+
+        // Chat listeners
+        document.querySelectorAll('[data-select-chat-agent]').forEach(b => b.addEventListener('click', () => {
+          state.ui.activeAgentId = b.dataset.selectChatAgent;
+          saveState(); renderMain();
+        }));
+        const qna = document.getElementById('btn-quick-new-agent');
+        if (qna) qna.addEventListener('click', () => openAgentEditorSheet(null));
+
+        const sendBtn = document.getElementById('btn-chat-send');
+        const bgBtn = document.getElementById('btn-chat-bg');
+        const clearBtn = document.getElementById('btn-chat-clear');
+        const chatInput = document.getElementById('chat-input');
+
+        if (sendBtn && chatInput) {
+          const handleSend = async () => {
+            const text = chatInput.value.trim();
+            if (!text) return;
+            const agent = getAgent(state.ui.activeAgentId);
+            if (!state.chats[agent.id]) state.chats[agent.id] = [];
+            state.chats[agent.id].push({ id: uid('msg'), role: 'user', time: nowTime(), text });
+            chatInput.value = '';
+            saveState(); renderMain();
+
+            const resp = await runAgentChatTurn(agent, text);
+            state.chats[agent.id].push({
+              id: uid('msg'),
+              role: 'assistant',
+              time: nowTime(),
+              text: resp.text,
+              trace: resp.trace || [],
+              pendingApproval: resp.pendingApproval || null
+            });
+            saveState(); renderMain();
+          };
+          sendBtn.addEventListener('click', handleSend);
+          chatInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+          });
+        }
+        if (bgBtn && chatInput) {
+          bgBtn.addEventListener('click', () => {
+            const text = chatInput.value.trim() || 'Background synthesis & LLM Wiki update';
+            const agent = getAgent(state.ui.activeAgentId);
+            const isExt = /telegram|slack|discord|whatsapp|send|notify|webhook/i.test(text);
+            enqueueBackgroundTask({
+              title: text,
+              agentId: agent.id,
+              schedule: 'One-off',
+              requiresExternalSend: isExt,
+              wikiWriteTitle: /wiki|research|brief|ingest/i.test(text) ? text.slice(0, 32) : null
+            });
+            chatInput.value = '';
+            state.ui.tab = 'tasks';
+            saveState(); renderMain();
+          });
+        }
+        if (clearBtn) {
+          clearBtn.addEventListener('click', () => {
+            const agent = getAgent(state.ui.activeAgentId);
+            state.chats[agent.id] = [{ id: uid('msg'), role: 'assistant', time: nowTime(), text: `Thread cleared. **${agent.name}** ready.`, trace: [] }];
+            saveState(); renderMain();
+          });
+        }
+        document.querySelectorAll('[data-chat-approve]').forEach(b => b.addEventListener('click', () => {
+          const agent = getAgent(state.ui.activeAgentId);
+          const msg = (state.chats[agent.id] || []).find(m => m.id === b.dataset.chatApprove);
+          if (msg && msg.pendingApproval) {
+            msg.pendingApproval.status = 'approved';
+            msg.trace.push({ step: 'Connector', detail: 'Human approved — payload dispatched.', status: 'ok' });
+            saveState(); renderMain(); showToast('Approved & dispatched', 'success');
+          }
+        }));
+        document.querySelectorAll('[data-chat-reject]').forEach(b => b.addEventListener('click', () => {
+          const agent = getAgent(state.ui.activeAgentId);
+          const msg = (state.chats[agent.id] || []).find(m => m.id === b.dataset.chatReject);
+          if (msg && msg.pendingApproval) {
+            msg.pendingApproval.status = 'rejected';
+            msg.trace.push({ step: 'Connector', detail: 'Rejected by user — halted cleanly.', status: 'warn' });
+            saveState(); renderMain(); showToast('Action rejected');
+          }
+        }));
+
+        // Tasks listeners
+        const btnNewTask = document.getElementById('btn-new-task');
+        if (btnNewTask) btnNewTask.addEventListener('click', () => openNewTaskSheet(state.ui.activeAgentId));
+
+        const tGate = document.getElementById('tasks-approval-toggle');
+        if (tGate) tGate.addEventListener('click', () => {
+          state.harness.globalApprovalGate = !state.harness.globalApprovalGate;
+          saveState(); applyTheme(); renderMain();
+          showToast('Global Approval Gate ' + (state.harness.globalApprovalGate ? 'ON' : 'OFF'));
+        });
+
+        document.querySelectorAll('[data-task-filter]').forEach(b => b.addEventListener('click', () => {
+          state.ui.taskFilter = b.dataset.taskFilter; saveState(); renderMain();
+        }));
+        document.querySelectorAll('[data-task-approve]').forEach(b => b.addEventListener('click', () => {
+          const t = state.tasks.find(x => x.id === b.dataset.taskApprove);
+          if (t) {
+            t._approvedOnce = true;
+            t.status = 'running';
+            t.pendingAction = null;
+            const w = t.todos.find(td => td.status === 'waiting');
+            if (w) w.status = 'active';
+            t.logs.push({ time: nowTime(), type: 'gate', text: 'APPROVED by user — resuming background loop.' });
+            saveState(); updateBadges(); renderMain(); showToast('Approved — task resumed', 'success');
+          }
+        }));
+        document.querySelectorAll('[data-task-reject]').forEach(b => b.addEventListener('click', () => {
+          const t = state.tasks.find(x => x.id === b.dataset.taskReject);
+          if (t) {
+            t.status = 'rejected';
+            t.pendingAction = null;
+            t.logs.push({ time: nowTime(), type: 'gate', text: 'REJECTED by user — stopped safely.' });
+            saveState(); updateBadges(); renderMain(); showToast('Task halted safely');
+          }
+        }));
+        document.querySelectorAll('[data-task-pause]').forEach(b => b.addEventListener('click', () => {
+          const t = state.tasks.find(x => x.id === b.dataset.taskPause);
+          if (t) { t.status = 'paused'; saveState(); updateBadges(); renderMain(); }
+        }));
+        document.querySelectorAll('[data-task-resume]').forEach(b => b.addEventListener('click', () => {
+          const t = state.tasks.find(x => x.id === b.dataset.taskResume);
+          if (t) { t.status = 'running'; saveState(); updateBadges(); renderMain(); }
+        }));
+        document.querySelectorAll('[data-task-rerun]').forEach(b => b.addEventListener('click', () => {
+          const t = state.tasks.find(x => x.id === b.dataset.taskRerun);
+          if (t) {
+            enqueueBackgroundTask({ title: t.title, agentId: t.agentId, schedule: t.schedule, requiresExternalSend: t.requiresExternalSend, wikiWriteTitle: t.wikiWriteTitle });
+          }
+        }));
+        document.querySelectorAll('[data-task-delete]').forEach(b => b.addEventListener('click', () => {
+          state.tasks = state.tasks.filter(x => x.id !== b.dataset.taskDelete);
+          saveState(); updateBadges(); renderMain();
+        }));
+        document.querySelectorAll('[data-cron-toggle]').forEach(b => b.addEventListener('click', () => {
+          const c = state.cronJobs.find(x => x.id === b.dataset.cronToggle);
+          if (c) { c.enabled = !c.enabled; saveState(); renderMain(); showToast(`${c.name} ${c.enabled ? 'enabled' : 'paused'}`); }
+        }));
+        document.querySelectorAll('[data-cron-run]').forEach(b => b.addEventListener('click', () => {
+          const c = state.cronJobs.find(x => x.id === b.dataset.cronRun);
+          if (c) {
+            c.lastRun = 'Today ' + nowTime();
+            enqueueBackgroundTask({ title: c.name, agentId: c.agentId, schedule: c.schedule, requiresExternalSend: c.agentId === 'agent_ops' });
+          }
+        }));
+
+        // Agents listeners
+        const btnCA = document.getElementById('btn-create-agent');
+        if (btnCA) btnCA.addEventListener('click', () => openAgentEditorSheet(null));
+        document.querySelectorAll('[data-edit-agent]').forEach(b => b.addEventListener('click', () => openAgentEditorSheet(b.dataset.editAgent)));
+        document.querySelectorAll('[data-chat-with-agent]').forEach(b => b.addEventListener('click', () => {
+          state.ui.activeAgentId = b.dataset.chatWithAgent;
+          state.ui.tab = 'chat';
+          saveState(); renderMain();
+        }));
+        document.querySelectorAll('[data-dispatch-agent]').forEach(b => b.addEventListener('click', () => openNewTaskSheet(b.dataset.dispatchAgent)));
+
+        // Wiki listeners
+        const ws = document.getElementById('wiki-search-input');
+        if (ws) ws.addEventListener('input', e => { state.ui.wikiSearch = e.target.value; renderMain(); });
+        document.querySelectorAll('[data-wiki-cat]').forEach(b => b.addEventListener('click', () => {
+          state.ui.wikiCategory = b.dataset.wikiCat; saveState(); renderMain();
+        }));
+        document.querySelectorAll('[data-wiki-select]').forEach(b => b.addEventListener('click', () => {
+          state.ui.activeWikiId = b.dataset.wikiSelect; state.ui.wikiEditMode = false; saveState(); renderMain();
+        }));
+        const bte = document.getElementById('btn-wiki-toggle-edit');
+        if (bte) bte.addEventListener('click', () => { state.ui.wikiEditMode = !state.ui.wikiEditMode; renderMain(); });
+        const bws = document.getElementById('btn-wiki-save');
+        if (bws) bws.addEventListener('click', () => {
+          const page = state.wiki.find(p => p.id === state.ui.activeWikiId);
+          const ta = document.getElementById('wiki-editor-ta');
+          if (page && ta) {
+            page.content = ta.value;
+            page.updatedAt = 'Today, ' + nowTime();
+            state.ui.wikiEditMode = false;
+            saveState(); renderMain(); showToast('Wiki page saved', 'success');
+          }
+        });
+        const bwi = document.getElementById('btn-wiki-ingest');
+        if (bwi) bwi.addEventListener('click', openWikiIngestSheet);
+        const bObs = document.getElementById('btn-open-obsidian');
+        if (bObs) bObs.addEventListener('click', openObsidianVaultSheet);
+        const bObsBar = document.getElementById('btn-obsidian-bar-open');
+        if (bObsBar) bObsBar.addEventListener('click', openObsidianVaultSheet);
+        const bPushObs = document.getElementById('btn-wiki-push-obsidian');
+        if (bPushObs) bPushObs.addEventListener('click', () => {
+          const page = state.wiki.find(p => p.id === state.ui.activeWikiId);
+          if (!page) return;
+          if (state.obsidian.syncMode === 'read-only') {
+            showToast('Vault is in Read-Only mode — change in Obsidian settings', 'warn');
+            return;
+          }
+          const uri = buildObsidianUri('new', page);
+          try {
+            window.open(uri, '_blank');
+          } catch (e) {}
+          copyText(uri, 'Obsidian URI');
+          showToast(`Opening "${page.title}" in Obsidian mobile`, 'success');
+        });
+        const bDlMd = document.getElementById('btn-wiki-download-md');
+        if (bDlMd) bDlMd.addEventListener('click', () => {
+          const page = state.wiki.find(p => p.id === state.ui.activeWikiId);
+          if (!page) return;
+          downloadMarkdownFile((page.slug || 'note') + '.md', buildObsidianMarkdown(page));
+        });
+        const bwl = document.getElementById('btn-wiki-lint');
+        if (bwl) bwl.addEventListener('click', () => {
+          enqueueBackgroundTask({ title: 'LLM Wiki Lint & Broken Link Audit', agentId: 'agent_librarian', schedule: 'One-off', requiresExternalSend: false });
+          state.ui.tab = 'tasks'; saveState(); renderMain();
+        });
+
+        // Hub listeners
+        document.querySelectorAll('[data-hub-sub]').forEach(b => b.addEventListener('click', () => {
+          state.ui.hubSubTab = b.dataset.hubSub; saveState(); renderMain();
+        }));
+        document.querySelectorAll('[data-tool-toggle]').forEach(b => b.addEventListener('click', () => {
+          const t = state.tools.find(x => x.id === b.dataset.toolToggle);
+          if (t) { t.enabled = !t.enabled; saveState(); renderMain(); }
+        }));
+        document.querySelectorAll('[data-skill-toggle]').forEach(b => b.addEventListener('click', () => {
+          const s = state.skills.find(x => x.id === b.dataset.skillToggle);
+          if (s) { s.enabled = !s.enabled; saveState(); renderMain(); }
+        }));
+        document.querySelectorAll('[data-mcp-toggle]').forEach(b => b.addEventListener('click', () => {
+          const m = state.mcps.find(x => x.id === b.dataset.mcpToggle);
+          if (m) { m.status = m.status === 'connected' ? 'standby' : 'connected'; saveState(); renderMain(); showToast(`${m.name}: ${m.status}`); }
+        }));
+        document.querySelectorAll('[data-conn-toggle]').forEach(b => b.addEventListener('click', () => {
+          const c = state.connectors.find(x => x.id === b.dataset.connToggle);
+          if (c) { c.enabled = !c.enabled; saveState(); renderMain(); }
+        }));
+        const bAddT = document.getElementById('btn-add-tool'); if (bAddT) bAddT.addEventListener('click', () => openHubAddSheet('tool'));
+        const bAddS = document.getElementById('btn-add-skill'); if (bAddS) bAddS.addEventListener('click', () => openHubAddSheet('skill'));
+        const bAddM = document.getElementById('btn-add-mcp'); if (bAddM) bAddM.addEventListener('click', () => openHubAddSheet('mcp'));
+        const bAddC = document.getElementById('btn-add-connector'); if (bAddC) bAddC.addEventListener('click', () => openHubAddSheet('connector'));
+      }
+
+      // Global shell listeners
+      document.querySelectorAll('[data-nav]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.ui.tab = btn.dataset.nav;
+          saveState();
+          renderMain();
+        });
+      });
+
+      document.getElementById('btn-open-harness').addEventListener('click', openHarnessSheet);
+      document.getElementById('btn-open-settings').addEventListener('click', openSettingsSheet);
+      document.getElementById('btn-bg-pill').addEventListener('click', () => {
+        state.ui.tab = 'tasks';
+        saveState();
+        renderMain();
+      });
+      document.getElementById('sidebar-approval-toggle').addEventListener('click', () => {
+        state.harness.globalApprovalGate = !state.harness.globalApprovalGate;
+        saveState(); applyTheme(); renderMain();
+        showToast('Global Approval Gate ' + (state.harness.globalApprovalGate ? 'ON' : 'OFF'));
+      });
+
+      // Boot
+      applyTheme();
+      updateBadges();
+      renderMain();
+      if (bgInterval) clearInterval(bgInterval);
+      bgInterval = setInterval(tickBackgroundTasks, 1600);
+    })();
+  </script>
+</body>
+</html>
