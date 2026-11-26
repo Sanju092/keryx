@@ -40,6 +40,11 @@ for (let i = 0; i < inlineScripts.length; i++) {
 
 assert(html.includes("api.anthropic.com/v1/messages"), 'Anthropic live BYOK endpoint wired');
 assert(html.includes("Capacitor"), 'Capacitor native bridge integration present');
+assert(html.includes("Agent is working…"), 'Live agent processing card present');
+assert(html.includes("<details open "), 'Auto-expanded harness trace present');
+assert(html.includes("btn-sim-add-key"), 'Sim mode 1-tap Add Key banner present');
+assert(!html.includes("sticky bottom-0"), 'Non-overlapping composer without sticky bottom-0');
+assert(html.includes("slice(-12)"), '12-turn context window present');
 assert(!/ghp_[A-Za-z0-9]{20,}/.test(html), 'No hardcoded GitHub PAT in www/index.html');
 
 if (!process.exitCode) {

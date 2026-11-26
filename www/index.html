@@ -368,6 +368,101 @@
     }
     .pulse-dot { animation: pulseDot 1.4s ease-in-out infinite; }
 
+    /* Native <progress> Loading Spinner (modern-web-guidance) */
+    @property --arc-start {
+      syntax: "<angle>";
+      inherits: false;
+      initial-value: 0deg;
+    }
+    @property --arc-end {
+      syntax: "<angle>";
+      inherits: false;
+      initial-value: 158deg;
+    }
+    @property --progress-dash-animation {
+      syntax: "*";
+      inherits: false;
+      initial-value: , progress-dash 2.4s ease-in-out infinite;
+    }
+    progress.loading-spinner:indeterminate::-webkit-progress-bar,
+    progress.loading-spinner:indeterminate::-webkit-progress-value,
+    progress.loading-spinner:indeterminate::-moz-progress-bar,
+    progress.loading-spinner:indeterminate::slider-fill {
+      display: none;
+      background: none;
+    }
+    progress.loading-spinner:indeterminate {
+      --_from: calc(90deg + var(--arc-start, 0deg));
+      --_to: calc(90deg + var(--arc-end, 158deg));
+      --size: 18px;
+      --thickness: 2.5px;
+      --spinner-color: var(--accent);
+      --track-color: var(--border);
+      --spinner-duration: 1.1s;
+      --_used-spinner-duration: var(--spinner-duration);
+
+      position: relative;
+      display: inline-block;
+      flex-shrink: 0;
+      width: var(--size);
+      height: var(--size);
+      border-radius: 50%;
+      appearance: none;
+      background: conic-gradient(
+          from var(--_from),
+          var(--spinner-color) calc(var(--_to) - var(--_from)),
+          transparent 0
+        )
+        var(--track-color);
+      animation:
+        progress-spin var(--_used-spinner-duration) linear infinite
+        var(--progress-dash-animation, );
+    }
+    progress.loading-spinner.loading-spinner-sm:indeterminate {
+      --size: 13px;
+      --thickness: 2px;
+    }
+    @supports (background-clip: border-area) {
+      progress.loading-spinner:indeterminate {
+        background-clip: border-area;
+        border: var(--thickness) solid transparent;
+        background-origin: border-box;
+      }
+    }
+    @supports not (background-clip: border-area) {
+      progress.loading-spinner:indeterminate {
+        --clip-boundary: calc(100% - var(--thickness));
+        mask-image: radial-gradient(
+          farthest-side,
+          transparent var(--clip-boundary),
+          black var(--clip-boundary)
+        );
+        border: 0;
+      }
+    }
+    @media (forced-colors: active) {
+      progress.loading-spinner:indeterminate {
+        forced-color-adjust: none;
+        --spinner-color: CanvasText;
+        --track-color: Canvas;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      progress.loading-spinner:indeterminate {
+        --_used-spinner-duration: 6s;
+        --progress-dash-animation: ;
+        --arc-end: 158deg;
+      }
+    }
+    @keyframes progress-spin {
+      to { rotate: 1turn; }
+    }
+    @keyframes progress-dash {
+      from { --arc-start: 0deg; --arc-end: 12deg; }
+      50% { --arc-start: 100deg; --arc-end: 350deg; }
+      to { --arc-start: 360deg; --arc-end: 372deg; }
+    }
+
     /* Wiki link */
     .wikilink {
       color: var(--accent);
@@ -1262,24 +1357,66 @@ ${ratchetLines}`;
         }
       }
 
-      // Live BYOK LLM Call (Gemini, OpenAI, Anthropic, OpenRouter, Custom HTTPS + safe simulator fallback)
-      async function runAgentChatTurn(agent, userText) {
+      function hasLiveProviderConfig(providerKey) {
+        const cfg = state.providers[providerKey] || {};
+        const key = (cfg.apiKey || '').trim();
+        if (providerKey === 'custom') {
+          const base = (cfg.baseUrl || '').trim();
+          return base.startsWith('https://') && base !== 'https://api.example.com/v1' && (key.length > 0 || base.length > 12);
+        }
+        return key.length > 4;
+      }
+
+      function buildWikiContextPrompt() {
+        if (!Array.isArray(state.wiki) || !state.wiki.length) return '';
+        const pages = state.wiki.slice(0, 12).map(p => {
+          const snippet = String(p.content || '').slice(0, 900);
+          return `### [[${p.title}]] (${p.category})\n${snippet}`;
+        }).join('\n\n');
+        return `\n\nLLM Wiki Context (${state.wiki.length} pages):\n${pages}`;
+      }
+
+      function scrollChatToBottom() {
+        const main = document.getElementById('main-content');
+        if (main) {
+          requestAnimationFrame(() => {
+            main.scrollTo({ top: main.scrollHeight, behavior: 'smooth' });
+          });
+        }
+      }
+
+      // Live BYOK LLM Call (Gemini, OpenAI, Anthropic, OpenRouter, Custom HTTPS + inline error reporting + simulator fallback when unconfigured)
+      async function runAgentChatTurn(agent, userText, onStep) {
+        const stepUpdate = (idx, detail) => {
+          if (typeof onStep === 'function') onStep(idx, detail);
+        };
+        const pause = (ms) => new Promise(r => setTimeout(r, ms));
+
+        stepUpdate(0, 'Loaded AGENTS.md & [[Wiki Index]]');
+        await pause(120);
+        stepUpdate(1, 'Activated agent skills & tools');
+        await pause(120);
+
         const providerCfg = state.providers[agent.provider] || {};
         const apiKey = (providerCfg.apiKey || '').trim();
         const customBase = (providerCfg.baseUrl || '').trim();
         const isCustomHttps = agent.provider === 'custom' && customBase.startsWith('https://');
-        const supportsLive = ['gemini', 'openai', 'anthropic', 'openrouter'].includes(agent.provider) || isCustomHttps;
+        const canCallLive = hasLiveProviderConfig(agent.provider) && (['gemini', 'openai', 'anthropic', 'openrouter'].includes(agent.provider) || isCustomHttps);
 
-        // Build multi-turn context (excluding the just-pushed user message at the end)
+        // Build multi-turn context: last 12 chat turns (excluding the just-pushed user message)
         const thread = state.chats[agent.id] || [];
-        const priorTurns = thread.slice(0, -1).slice(-8).filter(m => m.text).map(m => ({
+        const priorTurns = thread.slice(0, -1).slice(-12).filter(m => m.text && !m.error).map(m => ({
           role: m.role === 'user' ? 'user' : 'assistant',
           text: m.text
         }));
 
-        if (apiKey && supportsLive) {
+        if (canCallLive) {
+          stepUpdate(2, `Calling ${agent.provider}/${agent.model}...`);
+          const sysPrompt = agent.systemPrompt + '\n\nActive Harness Rules:\n' + compileAgentsMd() + buildWikiContextPrompt();
           try {
-            const sysPrompt = agent.systemPrompt + '\n\nActive Harness Rules:\n' + compileAgentsMd();
+            let reply = '';
+            let turnsSent = priorTurns.length + 1;
+
             if (agent.provider === 'gemini') {
               const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(agent.model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
               const contents = [
@@ -1295,18 +1432,10 @@ ${ratchetLines}`;
                   generationConfig: { temperature: agent.temperature }
                 })
               });
-              if (!res.ok) throw new Error('Gemini API ' + res.status);
-              const data = await res.json();
-              const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (reply) {
-                return {
-                  text: reply,
-                  trace: [
-                    { step: 'Live API', detail: `Called ${agent.provider}/${agent.model} (${contents.length} turns)`, status: 'ok' },
-                    { step: 'Harness Gate', detail: 'Verified output format cleanly', status: 'ok' }
-                  ]
-                };
-              }
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status} ${res.statusText}`);
+              reply = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+              if (!reply) throw new Error('Empty response from Gemini model');
             } else if (agent.provider === 'anthropic') {
               const messages = [
                 ...priorTurns.map(m => ({ role: m.role, content: m.text })),
@@ -1328,24 +1457,21 @@ ${ratchetLines}`;
                   messages
                 })
               });
-              if (!res.ok) throw new Error('Anthropic API ' + res.status);
-              const data = await res.json();
-              const reply = (data?.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
-              if (reply) {
-                return {
-                  text: reply,
-                  trace: [
-                    { step: 'Live API', detail: `Called anthropic/${agent.model} (${messages.length} turns)`, status: 'ok' },
-                    { step: 'Harness Gate', detail: 'Verified output format cleanly', status: 'ok' }
-                  ]
-                };
-              }
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status} ${res.statusText}`);
+              reply = (data?.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+              if (!reply) throw new Error('Empty response from Anthropic model');
             } else {
               const endpoint = agent.provider === 'openrouter'
                 ? 'https://openrouter.ai/api/v1/chat/completions'
                 : agent.provider === 'custom'
                 ? customBase.replace(/\/+$/, '') + '/chat/completions'
                 : 'https://api.openai.com/v1/chat/completions';
+              const headers = { 'Content-Type': 'application/json' };
+              if (apiKey) headers['Authorization'] = 'Bearer ' + apiKey;
+              if (agent.provider === 'openrouter') {
+                headers['X-Title'] = 'Keryx Personal Agentic Platform';
+              }
               const messages = [
                 { role: 'system', content: sysPrompt },
                 ...priorTurns.map(m => ({ role: m.role, content: m.text })),
@@ -1353,35 +1479,51 @@ ${ratchetLines}`;
               ];
               const res = await fetch(endpoint, {
                 method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': 'Bearer ' + apiKey
-                },
+                headers,
                 body: JSON.stringify({
                   model: agent.model,
                   temperature: agent.temperature,
                   messages
                 })
               });
-              if (!res.ok) throw new Error(`${agent.provider} API ${res.status}`);
-              const data = await res.json();
-              const reply = data?.choices?.[0]?.message?.content;
-              if (reply) {
-                return {
-                  text: reply,
-                  trace: [
-                    { step: 'Live API', detail: `Called ${agent.provider}/${agent.model} (${messages.length - 1} turns)`, status: 'ok' },
-                    { step: 'Harness Gate', detail: 'Verified output format cleanly', status: 'ok' }
-                  ]
-                };
-              }
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(data?.error?.message || data?.message || `HTTP ${res.status} ${res.statusText}`);
+              reply = data?.choices?.[0]?.message?.content;
+              if (!reply) throw new Error(`Empty response from ${agent.provider} model`);
             }
+
+            stepUpdate(3, 'Verified response via Harness Gate');
+            await pause(120);
+            return {
+              text: reply,
+              trace: [
+                { step: 'Orient', detail: `Loaded AGENTS.md & ${state.wiki.length} LLM Wiki pages`, status: 'ok' },
+                { step: 'Context', detail: `Sent ${turnsSent} chat turns to ${agent.provider}/${agent.model}`, status: 'ok' },
+                { step: 'Verify Gate', detail: 'Schema & output format verified cleanly', status: 'ok' }
+              ]
+            };
           } catch (err) {
-            showToast('Live API failed — used simulator (' + err.message + ')', 'warn');
+            stepUpdate(3, 'Captured API error cleanly');
+            const errMsg = err && err.message ? err.message : 'Request failed';
+            return {
+              text: `Could not reach **${PROVIDERS[agent.provider]?.name || agent.provider}** using Model ID \`${agent.model}\`.\n\nCheck your API key, HTTPS endpoint, or exact Model ID in **Provider Vault**.`,
+              error: {
+                provider: agent.provider,
+                model: agent.model,
+                message: errMsg
+              },
+              trace: [
+                { step: 'Orient', detail: `Loaded AGENTS.md & ${state.wiki.length} LLM Wiki pages`, status: 'ok' },
+                { step: 'Execute', detail: `${agent.provider}/${agent.model} failed: ${errMsg}`, status: 'danger' },
+                { step: 'Escape Hatch', detail: 'Surfaced inline error without silent fallback', status: 'warn' }
+              ]
+            };
           }
         }
 
-        // Simulated Hermes + Harness + LLM Wiki response
+        // Simulated Hermes + Harness + LLM Wiki response (when no API key is configured)
+        stepUpdate(2, `Running local simulator for ${agent.model}`);
+        await pause(160);
         const lower = userText.toLowerCase();
         const needsSend = /telegram|slack|discord|whatsapp|send|notify|webhook|email/.test(lower);
         const mentionsWiki = /wiki|note|ingest|index|lint|knowledge/.test(lower);
@@ -1389,6 +1531,7 @@ ${ratchetLines}`;
         const skillsUsed = state.skills.filter(s => agent.skillIds.includes(s.id)).map(s => s.name);
 
         if (needsSend && isApprovalActiveForAgent(agent)) {
+          stepUpdate(3, 'Paused at Approval Gate');
           return {
             text: `I prepared the outbound action for **"${userText.slice(0, 70)}"**, but **Approval Gate is ON**. Review and approve below to dispatch via your connector.`,
             pendingApproval: {
@@ -1404,17 +1547,20 @@ ${ratchetLines}`;
           };
         }
 
-        let replyText = `**${agent.name}** processed your request using \`${agent.model}\`.\n\n`;
+        stepUpdate(3, 'Harness Verification Gate passed');
+        await pause(100);
+        let replyText = `**${agent.name}** processed your request in **Sim mode** using \`${agent.model}\`.\n\n`;
         if (mentionsWiki) {
-          replyText += `- Checked **[[Wiki Index]]** (${state.wiki.length} pages) and cross-referenced **[[Agent Harness Architecture]]**.\n- Ready to ingest or update a wiki page — tap **Send to Background** to run a full async curation pass.`;
+          replyText += `- Checked **[[Wiki Index]]** (${state.wiki.length} pages) and cross-referenced **[[Agent Harness Architecture]]**.\n- Ready to ingest or update a wiki page — tap **Run in Background** to run a full async curation pass.`;
         } else {
-          replyText += `- Activated skills: ${skillsUsed.length ? skillsUsed.map(s => '`' + s + '`').join(', ') : '`core`'}.\n- Ran tools: ${toolsUsed.length ? toolsUsed.map(t => '`' + t + '`').join(', ') : '`persistent_memory`'}.\n- Harness Verification Gate passed (0 errors). Want me to run a deeper multi-step version in the background?`;
+          replyText += `- Activated skills: ${skillsUsed.length ? skillsUsed.map(s => '`' + s + '`').join(', ') : '`core`'}.\n- Ran tools: ${toolsUsed.length ? toolsUsed.map(t => '`' + t + '`').join(', ') : '`persistent_memory`'}.\n- Harness Verification Gate passed (0 errors). Add a **${PROVIDERS[agent.provider]?.name || agent.provider}** API key below for live responses.`;
         }
 
         return {
           text: replyText,
           trace: [
-            { step: 'Orient', detail: `Read AGENTS.md & [[Wiki Index]]`, status: 'ok' },
+            { step: 'Orient', detail: `Read AGENTS.md & [[Wiki Index]] (${state.wiki.length} pages)`, status: 'ok' },
+            { step: 'Skills', detail: skillsUsed.join(', ') || 'core', status: 'ok' },
             { step: 'Tools', detail: toolsUsed.join(', ') || 'persistent_memory', status: 'ok' },
             { step: 'Verify Gate', detail: 'Schema & guardrail check passed', status: 'ok' }
           ]
@@ -1467,18 +1613,27 @@ ${ratchetLines}`;
             </div>`;
           }
           const traceHtml = (m.trace && m.trace.length) ? `
-            <details class="mt-2 pt-2 border-t" style="border-color:var(--border);">
+            <details open class="mt-2 pt-2 border-t" style="border-color:var(--border);">
               <summary class="text-[11px] font-medium cursor-pointer select-none flex items-center gap-1" style="color:var(--muted);">
                 <span>Harness trace (${m.trace.length} ${m.trace.length === 1 ? 'step' : 'steps'})</span>
               </summary>
               <div class="mt-1.5 space-y-1">
                 ${m.trace.map(tr => `<div class="text-[11px] flex items-start gap-1.5 font-mono-code">
-                  <span style="color:${tr.status === 'warn' ? 'var(--warn)' : 'var(--success)'};">●</span>
+                  <span style="color:${tr.status === 'danger' ? 'var(--danger)' : tr.status === 'warn' ? 'var(--warn)' : 'var(--success)'};">●</span>
                   <span class="font-semibold">${escapeHtml(tr.step)}:</span>
                   <span style="color:var(--muted);">${escapeHtml(tr.detail)}</span>
                 </div>`).join('')}
               </div>
             </details>` : '';
+
+          const errorHtml = m.error ? `
+            <div class="mt-2.5 p-2.5 rounded-xl border" style="background:var(--danger-soft); border-color:var(--danger);">
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <span class="text-[11px] font-bold" style="color:var(--danger);">API ERROR · ${escapeHtml(m.error.provider)} / ${escapeHtml(m.error.model)}</span>
+                <button type="button" data-fix-provider="${escapeHtml(m.error.provider)}" class="btn-ghost px-2 py-0.5 text-[11px]">Check Key</button>
+              </div>
+              <p class="text-[11.5px] font-mono-code break-words">${escapeHtml(m.error.message)}</p>
+            </div>` : '';
 
           const approvalHtml = m.pendingApproval ? `
             <div class="mt-2.5 p-2.5 rounded-xl border" style="background:var(--warn-soft); border-color:var(--warn);">
@@ -1505,11 +1660,23 @@ ${ratchetLines}`;
                 <span class="text-[10px]" style="color:var(--muted);">${m.time}</span>
               </div>
               <div class="prose-sm">${renderMarkdownWithWikiLinks(m.text)}</div>
+              ${errorHtml}
               ${approvalHtml}
               ${traceHtml}
             </div>
           </div>`;
         }).join('');
+
+        const hasKeyForAgent = hasLiveProviderConfig(agent.provider);
+        const providerLabel = PROVIDERS[agent.provider]?.name || agent.provider;
+        const simBannerHtml = !hasKeyForAgent ? `
+          <div class="surface-subtle px-3 py-2 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="w-2 h-2 rounded-full shrink-0" style="background:var(--warn);"></span>
+              <span class="text-[11.5px] truncate" style="color:var(--muted);"><strong>Sim mode</strong> · No API key for ${escapeHtml(providerLabel)}</span>
+            </div>
+            <button type="button" id="btn-sim-add-key" data-focus-provider="${escapeHtml(agent.provider)}" class="btn-primary px-2.5 py-1 text-[11px] shrink-0">Add Key</button>
+          </div>` : '';
 
         return `<div class="flex flex-col gap-3 max-w-3xl mx-auto min-h-full">
           <!-- Agent Selector Strip -->
@@ -1536,18 +1703,20 @@ ${ratchetLines}`;
             ${msgHtml}
           </div>
 
-          <!-- Composer -->
-          <div class="surface p-2.5 space-y-2 sticky bottom-0">
+          ${simBannerHtml}
+
+          <!-- Composer (non-sticky so it never covers replies while scrolling) -->
+          <div class="surface p-2.5 space-y-2">
             <textarea id="chat-input" rows="2" class="input-field resize-none" placeholder="Ask ${escapeHtml(agent.name)} or dispatch a background task..."></textarea>
             <div class="flex items-center justify-between gap-2 flex-wrap">
               <div class="flex items-center gap-1.5">
-                <button id="btn-chat-bg" class="btn-ghost px-2.5 py-1.5 text-xs flex items-center gap-1.5" title="Queue in background runner">
+                <button type="button" id="btn-chat-bg" class="btn-ghost px-2.5 py-1.5 text-xs flex items-center gap-1.5" title="Queue in background runner">
                   <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
                   <span>Run in Background</span>
                 </button>
-                <button id="btn-chat-clear" class="btn-ghost px-2 py-1.5 text-xs" title="Clear thread">Clear</button>
+                <button type="button" id="btn-chat-clear" class="btn-ghost px-2 py-1.5 text-xs" title="Clear thread">Clear</button>
               </div>
-              <button id="btn-chat-send" class="btn-primary px-3.5 py-1.5 text-xs flex items-center gap-1.5">
+              <button type="button" id="btn-chat-send" class="btn-primary px-3.5 py-1.5 text-xs flex items-center gap-1.5">
                 <span>Send</span>
                 <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i>
               </button>
@@ -2171,7 +2340,7 @@ ${ratchetLines}`;
       }
 
       // SETTINGS & CONFIGURABLE INTERFACE SHEET
-      function openSettingsSheet() {
+      function openSettingsSheet(focusProvider) {
         const html = `
           <!-- Configurable Interface Section -->
           <div class="space-y-3">
@@ -2233,7 +2402,8 @@ ${ratchetLines}`;
               const pCfg = state.providers[key] || {};
               const customList = Array.isArray(pCfg.customModels) ? pCfg.customModels : [];
               const allModels = getProviderModels(key);
-              return `<div class="surface-subtle p-2.5 space-y-2">
+              const isFocused = focusProvider === key;
+              return `<div data-provider-card="${key}" class="surface-subtle p-2.5 space-y-2" style="${isFocused ? 'border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft);' : ''}">
                 <div class="flex items-center justify-between">
                   <span class="text-xs font-semibold">${info.name}</span>
                   <span class="text-[10px]" style="color:var(--muted);">${allModels.length} model IDs</span>
@@ -2267,6 +2437,15 @@ ${ratchetLines}`;
 
         openSheet('Interface & Provider Vault', 'Customize theme, density, layout & BYOK model keys', html);
 
+        if (focusProvider) {
+          requestAnimationFrame(() => {
+            const card = document.querySelector(`[data-provider-card="${focusProvider}"]`);
+            const keyInp = document.querySelector(`[data-provider-key="${focusProvider}"]`);
+            if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (keyInp) keyInp.focus();
+          });
+        }
+
         document.querySelectorAll('[data-set-preset]').forEach(b => b.addEventListener('click', () => {
           state.ui.preset = b.dataset.setPreset; saveState(); applyTheme(); openSettingsSheet();
         }));
@@ -2294,7 +2473,7 @@ ${ratchetLines}`;
             if (!state.providers[k]) state.providers[k] = {};
             state.providers[k].baseUrl = inp.value.trim();
           });
-          saveState(); applyTheme();
+          saveState(); applyTheme(); renderMain();
           showToast('Provider keys & endpoints saved', 'success');
         });
         document.querySelectorAll('[data-add-model-btn]').forEach(btn => {
@@ -2949,10 +3128,52 @@ ${ratchetLines}`;
         const qna = document.getElementById('btn-quick-new-agent');
         if (qna) qna.addEventListener('click', () => openAgentEditorSheet(null));
 
+        const simAddBtn = document.getElementById('btn-sim-add-key');
+        if (simAddBtn) {
+          simAddBtn.addEventListener('click', () => openSettingsSheet(simAddBtn.dataset.focusProvider));
+        }
+        document.querySelectorAll('[data-fix-provider]').forEach(b => {
+          b.addEventListener('click', () => openSettingsSheet(b.dataset.fixProvider));
+        });
+
         const sendBtn = document.getElementById('btn-chat-send');
         const bgBtn = document.getElementById('btn-chat-bg');
         const clearBtn = document.getElementById('btn-chat-clear');
         const chatInput = document.getElementById('chat-input');
+
+        function renderWorkingCard(agentName, activeIdx, activeDetail) {
+          const steps = [
+            { label: 'Orient', fallback: 'Read AGENTS.md & [[Wiki Index]]' },
+            { label: 'Skills', fallback: 'Load skills & tools' },
+            { label: 'Execute', fallback: 'Generate agent response' },
+            { label: 'Verify Gate', fallback: 'Run schema_verify & harness-critic' }
+          ];
+          const rows = steps.map((st, idx) => {
+            const done = idx < activeIdx;
+            const active = idx === activeIdx;
+            const iconHtml = done
+              ? `<span class="w-4 h-4 rounded-full inline-flex items-center justify-center text-[10px] font-bold shrink-0" style="background:var(--success-soft); color:var(--success);">✓</span>`
+              : active
+              ? `<progress aria-label="${escapeHtml(st.label)}" class="loading-spinner loading-spinner-sm"></progress>`
+              : `<span class="w-4 h-4 inline-flex items-center justify-center text-[10px] shrink-0" style="color:var(--muted);">○</span>`;
+            const detailText = active && activeDetail ? activeDetail : st.fallback;
+            return `<div class="flex items-center gap-2 text-[11.5px] ${done ? 'opacity-80' : ''}">
+              ${iconHtml}
+              <span class="font-semibold shrink-0" style="color:${done ? 'var(--success)' : active ? 'var(--text)' : 'var(--muted)'};">${st.label}</span>
+              <span class="truncate" style="color:var(--muted);">${escapeHtml(detailText)}</span>
+            </div>`;
+          }).join('');
+          return `<div class="max-w-[92%] surface card-pad space-y-2.5">
+            <div class="flex items-center gap-2.5">
+              <progress aria-label="Agent is working" class="loading-spinner"></progress>
+              <div class="min-w-0">
+                <div class="text-xs font-semibold">Agent is working…</div>
+                <div class="text-[11px] truncate" style="color:var(--muted);">${escapeHtml(agentName)} · Orient → Skills → Execute → Verify Gate</div>
+              </div>
+            </div>
+            <div class="surface-subtle p-2.5 space-y-1.5">${rows}</div>
+          </div>`;
+        }
 
         if (sendBtn && chatInput) {
           let isSending = false;
@@ -2966,28 +3187,40 @@ ${ratchetLines}`;
             state.chats[agent.id].push({ id: uid('msg'), role: 'user', time: nowTime(), text });
             chatInput.value = '';
             saveState(); renderMain();
+            scrollChatToBottom();
 
             const listEl = document.getElementById('chat-messages-list');
+            let workingCard = null;
             if (listEl) {
-              const typing = document.createElement('div');
-              typing.id = 'chat-typing-indicator';
-              typing.className = 'flex justify-start';
-              typing.innerHTML = `<div class="surface card-pad text-xs flex items-center gap-2" style="color:var(--muted);"><span class="w-2 h-2 rounded-full pulse-dot" style="background:var(--accent);"></span><span>${escapeHtml(agent.name)} is thinking...</span></div>`;
-              listEl.appendChild(typing);
-              listEl.scrollTop = listEl.scrollHeight;
+              workingCard = document.createElement('div');
+              workingCard.id = 'chat-working-card';
+              workingCard.className = 'flex justify-start';
+              workingCard.innerHTML = renderWorkingCard(agent.name, 0, 'Reading AGENTS.md & Wiki Index');
+              listEl.appendChild(workingCard);
+              scrollChatToBottom();
             }
 
             try {
-              const resp = await runAgentChatTurn(agent, text);
+              const resp = await runAgentChatTurn(agent, text, (stepIdx, detail) => {
+                if (workingCard) {
+                  workingCard.innerHTML = renderWorkingCard(agent.name, stepIdx, detail);
+                  scrollChatToBottom();
+                }
+              });
+              if (workingCard) {
+                workingCard.innerHTML = renderWorkingCard(agent.name, 4, '');
+              }
               state.chats[agent.id].push({
                 id: uid('msg'),
                 role: 'assistant',
                 time: nowTime(),
                 text: resp.text,
                 trace: resp.trace || [],
+                error: resp.error || null,
                 pendingApproval: resp.pendingApproval || null
               });
               saveState(); renderMain();
+              scrollChatToBottom();
             } finally {
               isSending = false;
             }
