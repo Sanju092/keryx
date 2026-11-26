@@ -369,21 +369,6 @@
     .pulse-dot { animation: pulseDot 1.4s ease-in-out infinite; }
 
     /* Native <progress> Loading Spinner (modern-web-guidance) */
-    @property --arc-start {
-      syntax: "<angle>";
-      inherits: false;
-      initial-value: 0deg;
-    }
-    @property --arc-end {
-      syntax: "<angle>";
-      inherits: false;
-      initial-value: 158deg;
-    }
-    @property --progress-dash-animation {
-      syntax: "*";
-      inherits: false;
-      initial-value: , progress-dash 2.4s ease-in-out infinite;
-    }
     progress.loading-spinner:indeterminate::-webkit-progress-bar,
     progress.loading-spinner:indeterminate::-webkit-progress-value,
     progress.loading-spinner:indeterminate::-moz-progress-bar,
@@ -392,13 +377,11 @@
       background: none;
     }
     progress.loading-spinner:indeterminate {
-      --_from: calc(90deg + var(--arc-start, 0deg));
-      --_to: calc(90deg + var(--arc-end, 158deg));
-      --size: 18px;
-      --thickness: 2.5px;
+      --size: 20px;
+      --thickness: 3px;
       --spinner-color: var(--accent);
       --track-color: var(--border);
-      --spinner-duration: 1.1s;
+      --spinner-duration: 0.9s;
       --_used-spinner-duration: var(--spinner-duration);
 
       position: relative;
@@ -409,17 +392,15 @@
       border-radius: 50%;
       appearance: none;
       background: conic-gradient(
-          from var(--_from),
-          var(--spinner-color) calc(var(--_to) - var(--_from)),
+          from 0deg,
+          var(--spinner-color) 160deg,
           transparent 0
         )
         var(--track-color);
-      animation:
-        progress-spin var(--_used-spinner-duration) linear infinite
-        var(--progress-dash-animation, );
+      animation: progress-spin var(--_used-spinner-duration) linear infinite;
     }
     progress.loading-spinner.loading-spinner-sm:indeterminate {
-      --size: 13px;
+      --size: 14px;
       --thickness: 2px;
     }
     @supports (background-clip: border-area) {
@@ -450,17 +431,10 @@
     @media (prefers-reduced-motion: reduce) {
       progress.loading-spinner:indeterminate {
         --_used-spinner-duration: 6s;
-        --progress-dash-animation: ;
-        --arc-end: 158deg;
       }
     }
     @keyframes progress-spin {
       to { rotate: 1turn; }
-    }
-    @keyframes progress-dash {
-      from { --arc-start: 0deg; --arc-end: 12deg; }
-      50% { --arc-start: 100deg; --arc-end: 350deg; }
-      to { --arc-start: 360deg; --arc-end: 372deg; }
     }
 
     /* Wiki link */
@@ -731,7 +705,7 @@
             openai: { apiKey: '', baseUrl: '' },
             anthropic: { apiKey: '', baseUrl: '' },
             openrouter: { apiKey: '', baseUrl: '' },
-            custom: { apiKey: '', baseUrl: 'https://api.example.com/v1' }
+            custom: { apiKey: '', baseUrl: '' }
           },
           obsidian: {
             vaultName: 'My Mobile Vault',
@@ -1020,6 +994,13 @@
       }
 
       let state = loadState();
+      if (state.providers && state.providers.custom) {
+        const cb = (state.providers.custom.baseUrl || '').trim();
+        const ck = (state.providers.custom.apiKey || '').trim();
+        if (!cb || cb === 'https://api.example.com/v1') {
+          state.providers.custom.baseUrl = ck.startsWith('nvapi-') ? 'https://integrate.api.nvidia.com/v1' : '';
+        }
+      }
       if (!state.obsidian) {
         state.obsidian = {
           vaultName: 'My Mobile Vault',
@@ -1409,11 +1390,11 @@ ${ratchetLines}`;
         return `\n\nLLM Wiki Context (${state.wiki.length} pages):\n${pages}`;
       }
 
-      function scrollChatToBottom() {
+      function scrollChatToBottom(instant) {
         const main = document.getElementById('main-content');
         if (main) {
           requestAnimationFrame(() => {
-            main.scrollTo({ top: main.scrollHeight, behavior: 'smooth' });
+            main.scrollTo({ top: main.scrollHeight, behavior: instant ? 'auto' : 'smooth' });
           });
         }
       }
@@ -1698,13 +1679,16 @@ ${ratchetLines}`;
 
         const hasKeyForAgent = hasLiveProviderConfig(agent.provider);
         const providerLabel = PROVIDERS[agent.provider]?.name || agent.provider;
+        const customHasKeyOnly = agent.provider === 'custom' && (state.providers.custom?.apiKey || '').trim().length > 0 && !hasKeyForAgent;
         const simBannerHtml = !hasKeyForAgent ? `
           <div class="surface-subtle px-3 py-2 flex items-center justify-between gap-2">
             <div class="flex items-center gap-2 min-w-0">
               <span class="w-2 h-2 rounded-full shrink-0" style="background:var(--warn);"></span>
-              <span class="text-[11.5px] truncate" style="color:var(--muted);"><strong>Sim mode</strong> · No API key for ${escapeHtml(providerLabel)}</span>
+              <span class="text-[11.5px] truncate" style="color:var(--muted);">${customHasKeyOnly
+                ? `<strong>Sim mode</strong> · Set HTTPS Base URL for ${escapeHtml(providerLabel)}`
+                : `<strong>Sim mode</strong> · No API key for ${escapeHtml(providerLabel)}`}</span>
             </div>
-            <button type="button" id="btn-sim-add-key" data-focus-provider="${escapeHtml(agent.provider)}" class="btn-primary px-2.5 py-1 text-[11px] shrink-0">Add Key</button>
+            <button type="button" id="btn-sim-add-key" data-focus-provider="${escapeHtml(agent.provider)}" class="btn-primary px-2.5 py-1 text-[11px] shrink-0">${customHasKeyOnly ? 'Set URL' : 'Add Key'}</button>
           </div>` : '';
 
         return `<div class="flex flex-col gap-3 max-w-3xl mx-auto min-h-full">
@@ -2438,7 +2422,16 @@ ${ratchetLines}`;
                   <span class="text-[10px]" style="color:var(--muted);">${allModels.length} model IDs</span>
                 </div>
                 <input data-provider-key="${key}" type="password" class="input-field font-mono-code text-xs" value="${escapeHtml(pCfg.apiKey || '')}" placeholder="API Key (${info.placeholder})" />
-                ${key === 'custom' ? `<input data-provider-url="${key}" type="url" class="input-field font-mono-code text-xs" value="${escapeHtml(pCfg.baseUrl || '')}" placeholder="HTTPS Base URL (e.g., https://integrate.api.nvidia.com/v1)" />` : ''}
+                ${key === 'custom' ? `<input data-provider-url="${key}" type="url" class="input-field font-mono-code text-xs" value="${escapeHtml(pCfg.baseUrl || '')}" placeholder="HTTPS Base URL (e.g., https://integrate.api.nvidia.com/v1)" />
+                <div class="flex flex-wrap gap-1 items-center">
+                  <span class="text-[10px]" style="color:var(--muted);">Presets:</span>
+                  ${[
+                    ['NVIDIA NIM', 'https://integrate.api.nvidia.com/v1'],
+                    ['Groq', 'https://api.groq.com/openai/v1'],
+                    ['Together', 'https://api.together.xyz/v1'],
+                    ['Mistral', 'https://api.mistral.ai/v1']
+                  ].map(([lbl, u]) => `<button type="button" data-custom-url-preset="${u}" class="pill pill-muted text-[10px] cursor-pointer">${lbl}</button>`).join('')}
+                </div>` : ''}
                 <div class="flex flex-wrap gap-1">
                   ${allModels.map(mid => {
                     const isCustom = customList.includes(mid);
@@ -2470,10 +2463,22 @@ ${ratchetLines}`;
           requestAnimationFrame(() => {
             const card = document.querySelector(`[data-provider-card="${focusProvider}"]`);
             const keyInp = document.querySelector(`[data-provider-key="${focusProvider}"]`);
+            const urlInp = document.querySelector(`[data-provider-url="${focusProvider}"]`);
             if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            if (keyInp) keyInp.focus();
+            if (focusProvider === 'custom' && keyInp && keyInp.value.trim() && urlInp) urlInp.focus();
+            else if (keyInp) keyInp.focus();
           });
         }
+
+        document.querySelectorAll('[data-custom-url-preset]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const urlInp = document.querySelector('[data-provider-url="custom"]');
+            if (urlInp) {
+              urlInp.value = btn.dataset.customUrlPreset;
+              urlInp.focus();
+            }
+          });
+        });
 
         document.querySelectorAll('[data-set-preset]').forEach(b => b.addEventListener('click', () => {
           state.ui.preset = b.dataset.setPreset; saveState(); applyTheme(); openSettingsSheet();
@@ -2502,8 +2507,20 @@ ${ratchetLines}`;
             if (!state.providers[k]) state.providers[k] = {};
             state.providers[k].baseUrl = inp.value.trim();
           });
+          // Auto-populate NVIDIA NIM endpoint if user pasted an nvapi- key without setting a Base URL
+          let autoMsg = '';
+          if (state.providers.custom) {
+            const ck = (state.providers.custom.apiKey || '').trim();
+            const cb = (state.providers.custom.baseUrl || '').trim();
+            if (ck.startsWith('nvapi-') && (!cb || cb === 'https://api.example.com/v1')) {
+              state.providers.custom.baseUrl = 'https://integrate.api.nvidia.com/v1';
+              const urlInp = document.querySelector('[data-provider-url="custom"]');
+              if (urlInp) urlInp.value = state.providers.custom.baseUrl;
+              autoMsg = ' · NVIDIA NIM URL set';
+            }
+          }
           saveState(); applyTheme(); renderMain();
-          showToast('Provider keys & endpoints saved', 'success');
+          showToast('Provider keys & endpoints saved' + autoMsg, 'success');
         });
         document.querySelectorAll('[data-add-model-btn]').forEach(btn => {
           btn.addEventListener('click', () => {
@@ -3192,13 +3209,16 @@ ${ratchetLines}`;
               <span class="truncate" style="color:var(--muted);">${escapeHtml(detailText)}</span>
             </div>`;
           }).join('');
-          return `<div class="max-w-[92%] surface card-pad space-y-2.5">
-            <div class="flex items-center gap-2.5">
-              <progress aria-label="Agent is working" class="loading-spinner"></progress>
-              <div class="min-w-0">
-                <div class="text-xs font-semibold">Agent is working…</div>
-                <div class="text-[11px] truncate" style="color:var(--muted);">${escapeHtml(agentName)} · Orient → Skills → Execute → Verify Gate</div>
+          return `<div class="max-w-[92%] surface card-pad space-y-2.5" style="border-color: var(--accent);">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <progress aria-label="Agent is working" class="loading-spinner"></progress>
+                <div class="min-w-0">
+                  <div class="text-xs font-semibold">Agent is working…</div>
+                  <div class="text-[11px] truncate" style="color:var(--muted);">${escapeHtml(agentName)} · Orient → Skills → Execute → Verify Gate</div>
+                </div>
               </div>
+              <span class="pill pill-accent text-[10px] shrink-0">Running</span>
             </div>
             <div class="surface-subtle p-2.5 space-y-1.5">${rows}</div>
           </div>`;
@@ -3216,7 +3236,13 @@ ${ratchetLines}`;
             state.chats[agent.id].push({ id: uid('msg'), role: 'user', time: nowTime(), text });
             chatInput.value = '';
             saveState(); renderMain();
-            scrollChatToBottom();
+
+            const liveSendBtn = document.getElementById('btn-chat-send');
+            if (liveSendBtn) {
+              liveSendBtn.disabled = true;
+              liveSendBtn.style.opacity = '0.6';
+              liveSendBtn.innerHTML = `<progress aria-label="Sending" class="loading-spinner loading-spinner-sm"></progress><span>Working…</span>`;
+            }
 
             const listEl = document.getElementById('chat-messages-list');
             let workingCard = null;
@@ -3226,18 +3252,19 @@ ${ratchetLines}`;
               workingCard.className = 'flex justify-start';
               workingCard.innerHTML = renderWorkingCard(agent.name, 0, 'Reading AGENTS.md & Wiki Index');
               listEl.appendChild(workingCard);
-              scrollChatToBottom();
+              scrollChatToBottom(true);
             }
 
             try {
               const resp = await runAgentChatTurn(agent, text, (stepIdx, detail) => {
                 if (workingCard) {
                   workingCard.innerHTML = renderWorkingCard(agent.name, stepIdx, detail);
-                  scrollChatToBottom();
+                  scrollChatToBottom(true);
                 }
               });
               if (workingCard) {
                 workingCard.innerHTML = renderWorkingCard(agent.name, 4, '');
+                await new Promise(r => setTimeout(r, 220));
               }
               state.chats[agent.id].push({
                 id: uid('msg'),
@@ -3249,7 +3276,7 @@ ${ratchetLines}`;
                 pendingApproval: resp.pendingApproval || null
               });
               saveState(); renderMain();
-              scrollChatToBottom();
+              scrollChatToBottom(false);
             } finally {
               isSending = false;
             }
