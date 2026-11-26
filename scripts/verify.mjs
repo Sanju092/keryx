@@ -18,6 +18,7 @@ assert(pkg.dependencies?.['@capacitor/android']?.startsWith('^8.'), 'Expected @c
 const capCfg = JSON.parse(fs.readFileSync(path.join(root, 'capacitor.config.json'), 'utf8'));
 assert(capCfg.appId === 'com.keryx.agentplatform', 'Valid appId in capacitor.config.json');
 assert(capCfg.webDir === 'www', 'Valid webDir in capacitor.config.json');
+assert(capCfg.plugins?.CapacitorHttp?.enabled === true, 'CapacitorHttp enabled for native CORS bypass');
 
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'www', 'manifest.json'), 'utf8'));
 assert(Boolean(manifest.name && manifest.start_url), 'Valid www/manifest.json');

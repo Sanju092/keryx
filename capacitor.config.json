@@ -13,6 +13,9 @@
     ]
   },
   "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    },
     "StatusBar": {
       "overlaysWebView": false,
       "style": "DEFAULT"
