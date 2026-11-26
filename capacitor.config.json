@@ -2,7 +2,6 @@
   "appId": "com.keryx.agentplatform",
   "appName": "Keryx",
   "webDir": "www",
-  "bundledWebRuntime": false,
   "server": {
     "androidScheme": "https",
     "allowNavigation": [
@@ -19,8 +18,8 @@
       "style": "DEFAULT"
     },
     "LocalNotifications": {
-      "smallIcon": "ic_stat_icon_config_sample",
-      "iconColor": "#C4552D"
+      "iconColor": "#C4552D",
+      "presentationOptions": ["badge", "sound", "banner", "list"]
     }
   }
 }

@@ -3,11 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark">
   <title>Keryx — Personal Agentic Platform</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
   <style>
     :root {
+      color-scheme: light;
       --bg: #FAF8F5;
       --surface: #FFFFFF;
       --surface-2: #F3EFE9;
@@ -34,6 +36,7 @@
 
     /* Dark Mode Overrides */
     [data-mode="dark"] {
+      color-scheme: dark;
       --bg: #161412;
       --surface: #1F1C19;
       --surface-2: #292521;
@@ -102,6 +105,7 @@
       margin: 0;
       padding: 0;
       height: 100%;
+      accent-color: var(--accent);
       background: var(--bg);
       color: var(--text);
       font-family: var(--font-body);
@@ -202,7 +206,7 @@
 
     /* Shell layout: mobile-first + optional phone frame on desktop */
     .app-outer {
-      min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
       justify-content: center;
       background: var(--bg);
@@ -210,31 +214,33 @@
     .app-shell {
       width: 100%;
       max-width: 1120px;
-      min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
       flex-direction: column;
       background: var(--bg);
       position: relative;
     }
-    body[data-frame="responsive"] .app-outer {
-      padding: 16px 0;
-      background: color-mix(in srgb, var(--bg) 88%, var(--text) 12%);
-    }
-    body[data-frame="responsive"] .app-shell {
-      max-width: 430px;
-      min-height: calc(100vh - 32px);
-      max-height: 900px;
-      border: 1px solid var(--border);
-      border-radius: 28px;
-      overflow: hidden;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+    @media (min-width: 641px) {
+      body[data-frame="phone"] .app-outer {
+        padding: 16px 0;
+        background: color-mix(in srgb, var(--bg) 88%, var(--text) 12%);
+      }
+      body[data-frame="phone"] .app-shell {
+        max-width: 430px;
+        min-height: calc(100dvh - 32px);
+        max-height: 900px;
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        overflow: hidden;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+      }
     }
 
     @media (max-width: 640px) {
-      body[data-frame="responsive"] .app-outer { padding: 0; background: var(--bg); }
-      body[data-frame="responsive"] .app-shell {
+      .app-outer { padding: 0; background: var(--bg); }
+      .app-shell {
         max-width: 100%;
-        min-height: 100vh;
+        min-height: 100dvh;
         max-height: none;
         border: none;
         border-radius: 0;
@@ -318,36 +324,39 @@
       font-weight: 600;
     }
 
-    /* Sheet / Modal */
-    .sheet-backdrop {
-      position: fixed;
-      inset: 0;
+    /* Native <dialog> Sheet / Modal */
+    dialog.sheet-dialog {
+      width: 100%;
+      max-width: 560px;
+      max-height: 88dvh;
+      margin: auto auto 0 auto;
+      padding: 0;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 20px 20px 0 0;
+      overflow: hidden;
+    }
+    dialog.sheet-dialog[open] {
+      display: flex;
+      flex-direction: column;
+      animation: slideUp 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    dialog.sheet-dialog:modal {
+      overscroll-behavior: contain;
+    }
+    dialog.sheet-dialog::backdrop {
       background: rgba(0, 0, 0, 0.45);
       backdrop-filter: blur(3px);
-      z-index: 50;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      padding: 0;
+      overflow: hidden;
+      overscroll-behavior: contain;
       animation: fadeIn 0.16s ease;
     }
     @media (min-width: 640px) {
-      .sheet-backdrop { align-items: center; padding: 20px; }
-    }
-    .sheet-panel {
-      width: 100%;
-      max-width: 560px;
-      max-height: 88vh;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px 20px 0 0;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      animation: slideUp 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
-    }
-    @media (min-width: 640px) {
-      .sheet-panel { border-radius: 18px; }
+      dialog.sheet-dialog {
+        margin: auto;
+        border-radius: 18px;
+      }
     }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     @keyframes slideUp { from { transform: translateY(18px); opacity: 0.7; } to { transform: translateY(0); opacity: 1; } }
@@ -474,7 +483,7 @@
   </div>
 
   <!-- Modal / Sheet Root -->
-  <div id="sheet-root"></div>
+  <dialog id="app-sheet-dialog" class="sheet-dialog" closedby="any" aria-labelledby="sheet-title"></dialog>
 
   <!-- Toast Root -->
   <div id="toast-root" class="fixed top-14 left-1/2 -translate-x-1/2 z-[70] flex flex-col gap-2 pointer-events-none w-[90%] max-w-sm"></div>
@@ -501,12 +510,12 @@
         },
         openai: {
           name: 'OpenAI',
-          models: ['gpt-4.1', 'gpt-4.1-mini', 'o3-mini'],
+          models: ['gpt-4.1', 'gpt-4.1-mini', 'o4-mini', 'o3-mini'],
           placeholder: 'sk-...'
         },
         anthropic: {
           name: 'Anthropic',
-          models: ['claude-sonnet-4-20250514', 'claude-3-5-haiku-latest'],
+          models: ['claude-sonnet-4-20250514', 'claude-3-7-sonnet-latest', 'claude-3-5-haiku-latest'],
           placeholder: 'sk-ant-...'
         },
         openrouter: {
@@ -520,6 +529,50 @@
           placeholder: 'Optional bearer token'
         }
       };
+
+      // Capacitor 8 Native Bridge Helpers (gracefully no-op in web browser)
+      function capPlugin(name) {
+        try {
+          return window.Capacitor?.Plugins?.[name] || null;
+        } catch (e) {
+          return null;
+        }
+      }
+      function isNativeCap() {
+        try {
+          return Boolean(window.Capacitor?.isNativePlatform?.());
+        } catch (e) {
+          return false;
+        }
+      }
+      async function syncNativeStatusBar(mode) {
+        const sb = capPlugin('StatusBar');
+        if (!sb || !isNativeCap()) return;
+        try {
+          await sb.setStyle({ style: mode === 'dark' ? 'DARK' : 'LIGHT' });
+        } catch (e) {}
+      }
+      async function sendNativeNotification(title, body) {
+        const ln = capPlugin('LocalNotifications');
+        if (!ln || !isNativeCap()) return;
+        try {
+          await ln.schedule({
+            notifications: [{
+              id: Math.floor(Date.now() % 2147483647),
+              title: String(title || 'Keryx'),
+              body: String(body || ''),
+              schedule: { at: new Date(Date.now() + 200) }
+            }]
+          });
+        } catch (e) {}
+      }
+      async function openExternalUrl(url) {
+        const br = capPlugin('Browser');
+        if (br && isNativeCap() && /^https?:\/\//i.test(url)) {
+          try { await br.open({ url }); return; } catch (e) {}
+        }
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
 
       function nowTime() {
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -859,15 +912,19 @@
       }
 
       function applyTheme() {
+        const mode = state.ui.mode || 'light';
+        document.documentElement.dataset.mode = mode;
         document.body.dataset.preset = state.ui.preset || 'editorial';
-        document.body.dataset.mode = state.ui.mode || 'light';
+        document.body.dataset.mode = mode;
         document.body.dataset.density = state.ui.density || 'comfortable';
-        document.body.dataset.frame = state.ui.frame || 'phone';
+        document.body.dataset.frame = state.ui.frame || 'responsive';
 
         const acc = ACCENTS.find(a => a.id === state.ui.accent) || ACCENTS[0];
-        const hex = state.ui.mode === 'dark' ? acc.darkHex : acc.hex;
+        const hex = mode === 'dark' ? acc.darkHex : acc.hex;
         document.documentElement.style.setProperty('--accent', hex);
         document.documentElement.style.setProperty('--accent-soft', hex + '22');
+
+        syncNativeStatusBar(mode);
 
         // Header live/sim badge
         const hasAnyKey = Object.values(state.providers).some(p => p.apiKey && p.apiKey.trim().length > 4);
@@ -1111,6 +1168,7 @@ ${ratchetLines}`;
             };
             task.logs.push({ time: nowTime(), type: 'gate', text: `PAUSED: Awaiting approval for ${task.pendingAction.tool}.` });
             showToast(`Approval needed: ${task.title}`, 'warn');
+            sendNativeNotification('Approval Required', `${task.title} — ${task.pendingAction.tool}`);
             continue;
           }
 
@@ -1133,6 +1191,7 @@ ${ratchetLines}`;
             task.logs.push({ time: nowTime(), type: 'verify', text: 'VERIFICATION GATE PASSED: All harness checks green.' });
             task.status = 'completed';
             showToast(`Completed: ${task.title}`, 'success');
+            sendNativeNotification('Task Completed', task.title);
           }
 
           // Advance next step to active
@@ -1203,25 +1262,36 @@ ${ratchetLines}`;
         }
       }
 
-      // Live BYOK LLM Call (with safe fallback to simulation)
+      // Live BYOK LLM Call (Gemini, OpenAI, Anthropic, OpenRouter, Custom HTTPS + safe simulator fallback)
       async function runAgentChatTurn(agent, userText) {
         const providerCfg = state.providers[agent.provider] || {};
         const apiKey = (providerCfg.apiKey || '').trim();
-
-        // If user entered a real API key for Gemini, OpenAI, OpenRouter, or custom HTTPS endpoint, try live call
         const customBase = (providerCfg.baseUrl || '').trim();
         const isCustomHttps = agent.provider === 'custom' && customBase.startsWith('https://');
-        if (apiKey && (agent.provider === 'gemini' || agent.provider === 'openai' || agent.provider === 'openrouter' || isCustomHttps)) {
+        const supportsLive = ['gemini', 'openai', 'anthropic', 'openrouter'].includes(agent.provider) || isCustomHttps;
+
+        // Build multi-turn context (excluding the just-pushed user message at the end)
+        const thread = state.chats[agent.id] || [];
+        const priorTurns = thread.slice(0, -1).slice(-8).filter(m => m.text).map(m => ({
+          role: m.role === 'user' ? 'user' : 'assistant',
+          text: m.text
+        }));
+
+        if (apiKey && supportsLive) {
           try {
             const sysPrompt = agent.systemPrompt + '\n\nActive Harness Rules:\n' + compileAgentsMd();
             if (agent.provider === 'gemini') {
               const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(agent.model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+              const contents = [
+                ...priorTurns.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] })),
+                { role: 'user', parts: [{ text: userText }] }
+              ];
               const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   system_instruction: { parts: [{ text: sysPrompt }] },
-                  contents: [{ role: 'user', parts: [{ text: userText }] }],
+                  contents,
                   generationConfig: { temperature: agent.temperature }
                 })
               });
@@ -1232,7 +1302,40 @@ ${ratchetLines}`;
                 return {
                   text: reply,
                   trace: [
-                    { step: 'Live API', detail: `Called ${agent.provider}/${agent.model}`, status: 'ok' },
+                    { step: 'Live API', detail: `Called ${agent.provider}/${agent.model} (${contents.length} turns)`, status: 'ok' },
+                    { step: 'Harness Gate', detail: 'Verified output format cleanly', status: 'ok' }
+                  ]
+                };
+              }
+            } else if (agent.provider === 'anthropic') {
+              const messages = [
+                ...priorTurns.map(m => ({ role: m.role, content: m.text })),
+                { role: 'user', content: userText }
+              ];
+              const res = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-api-key': apiKey,
+                  'anthropic-version': '2023-06-01',
+                  'anthropic-dangerous-direct-browser-access': 'true'
+                },
+                body: JSON.stringify({
+                  model: agent.model,
+                  max_tokens: 2048,
+                  temperature: agent.temperature,
+                  system: sysPrompt,
+                  messages
+                })
+              });
+              if (!res.ok) throw new Error('Anthropic API ' + res.status);
+              const data = await res.json();
+              const reply = (data?.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+              if (reply) {
+                return {
+                  text: reply,
+                  trace: [
+                    { step: 'Live API', detail: `Called anthropic/${agent.model} (${messages.length} turns)`, status: 'ok' },
                     { step: 'Harness Gate', detail: 'Verified output format cleanly', status: 'ok' }
                   ]
                 };
@@ -1243,6 +1346,11 @@ ${ratchetLines}`;
                 : agent.provider === 'custom'
                 ? customBase.replace(/\/+$/, '') + '/chat/completions'
                 : 'https://api.openai.com/v1/chat/completions';
+              const messages = [
+                { role: 'system', content: sysPrompt },
+                ...priorTurns.map(m => ({ role: m.role, content: m.text })),
+                { role: 'user', content: userText }
+              ];
               const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
@@ -1252,10 +1360,7 @@ ${ratchetLines}`;
                 body: JSON.stringify({
                   model: agent.model,
                   temperature: agent.temperature,
-                  messages: [
-                    { role: 'system', content: sysPrompt },
-                    { role: 'user', content: userText }
-                  ]
+                  messages
                 })
               });
               if (!res.ok) throw new Error(`${agent.provider} API ${res.status}`);
@@ -1265,7 +1370,7 @@ ${ratchetLines}`;
                 return {
                   text: reply,
                   trace: [
-                    { step: 'Live API', detail: `Called ${agent.provider}/${agent.model}`, status: 'ok' },
+                    { step: 'Live API', detail: `Called ${agent.provider}/${agent.model} (${messages.length - 1} turns)`, status: 'ok' },
                     { step: 'Harness Gate', detail: 'Verified output format cleanly', status: 'ok' }
                   ]
                 };
@@ -1870,33 +1975,48 @@ ${ratchetLines}`;
       }
 
       // ============================
-      // SHEETS & MODALS
+      // SHEETS & MODALS (Native <dialog>)
       // ============================
+      (function initSheetDialog() {
+        const dialog = document.getElementById('app-sheet-dialog');
+        if (!dialog) return;
+        dialog.addEventListener('close', () => {
+          dialog.returnValue = '';
+          dialog.innerHTML = '';
+        });
+        // Fallback light-dismiss for browsers without <dialog closedby="any">
+        if (!('closedBy' in HTMLDialogElement.prototype)) {
+          const outside = (e) => {
+            const r = dialog.getBoundingClientRect();
+            return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+          };
+          let pressedOutside = false;
+          dialog.addEventListener('pointerdown', (e) => { pressedOutside = outside(e); });
+          dialog.addEventListener('pointerup', (e) => { if (pressedOutside && outside(e) && dialog.open) dialog.close(); });
+        }
+      })();
+
       function openSheet(title, subtitle, bodyHtml) {
-        const root = document.getElementById('sheet-root');
-        if (!root) return;
-        root.innerHTML = `<div class="sheet-backdrop" id="sheet-backdrop">
-          <div class="sheet-panel" role="dialog" aria-modal="true">
-            <div class="flex items-center justify-between gap-2 px-4 py-3 border-b" style="border-color:var(--border);">
-              <div class="min-w-0">
-                <h2 class="font-display text-base font-bold truncate">${escapeHtml(title)}</h2>
-                ${subtitle ? `<p class="text-[11px] truncate" style="color:var(--muted);">${escapeHtml(subtitle)}</p>` : ''}
-              </div>
-              <button id="btn-close-sheet" class="btn-ghost p-1.5 shrink-0" aria-label="Close"><i data-lucide="x" class="w-4 h-4"></i></button>
+        const dialog = document.getElementById('app-sheet-dialog');
+        if (!dialog) return;
+        dialog.innerHTML = `
+          <div class="flex items-center justify-between gap-2 px-4 py-3 border-b" style="border-color:var(--border);">
+            <div class="min-w-0">
+              <h1 id="sheet-title" class="font-display text-base font-bold truncate">${escapeHtml(title)}</h1>
+              ${subtitle ? `<p class="text-[11px] truncate" style="color:var(--muted);">${escapeHtml(subtitle)}</p>` : ''}
             </div>
-            <div class="p-4 overflow-y-auto space-y-4 flex-1" id="sheet-body">${bodyHtml}</div>
+            <button type="button" id="btn-close-sheet" class="btn-ghost p-1.5 shrink-0" aria-label="Close"><i data-lucide="x" class="w-4 h-4"></i></button>
           </div>
-        </div>`;
+          <div class="p-4 overflow-y-auto space-y-4 flex-1" id="sheet-body">${bodyHtml}</div>
+        `;
         if (window.lucide) window.lucide.createIcons();
         document.getElementById('btn-close-sheet').addEventListener('click', closeSheet);
-        document.getElementById('sheet-backdrop').addEventListener('click', e => {
-          if (e.target.id === 'sheet-backdrop') closeSheet();
-        });
+        if (!dialog.open) dialog.showModal();
       }
 
       function closeSheet() {
-        const root = document.getElementById('sheet-root');
-        if (root) root.innerHTML = '';
+        const dialog = document.getElementById('app-sheet-dialog');
+        if (dialog && dialog.open) dialog.close();
       }
 
       // HARNESS STUDIO SHEET (agent-harness-architect)
@@ -2477,7 +2597,23 @@ ${ratchetLines}`;
         return `obsidian://new?vault=${vault}&file=${encodeURIComponent(filePath)}&content=${encodeURIComponent(md)}&overwrite=true`;
       }
 
-      function downloadMarkdownFile(filename, content) {
+      async function downloadMarkdownFile(filename, content) {
+        const fsPlugin = capPlugin('Filesystem');
+        if (fsPlugin && isNativeCap()) {
+          try {
+            const folder = (state.obsidian.folderPath || 'Keryx-Wiki').replace(/^\/+|\/+$/g, '');
+            const relPath = (folder ? folder + '/' : '') + filename;
+            await fsPlugin.writeFile({
+              path: relPath,
+              data: content,
+              directory: 'DOCUMENTS',
+              encoding: 'utf8',
+              recursive: true
+            });
+            showToast(`Saved to Documents/${relPath}`, 'success');
+            return;
+          } catch (e) {}
+        }
         try {
           const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
           const url = URL.createObjectURL(blob);
@@ -2819,25 +2955,42 @@ ${ratchetLines}`;
         const chatInput = document.getElementById('chat-input');
 
         if (sendBtn && chatInput) {
+          let isSending = false;
           const handleSend = async () => {
+            if (isSending) return;
             const text = chatInput.value.trim();
             if (!text) return;
+            isSending = true;
             const agent = getAgent(state.ui.activeAgentId);
             if (!state.chats[agent.id]) state.chats[agent.id] = [];
             state.chats[agent.id].push({ id: uid('msg'), role: 'user', time: nowTime(), text });
             chatInput.value = '';
             saveState(); renderMain();
 
-            const resp = await runAgentChatTurn(agent, text);
-            state.chats[agent.id].push({
-              id: uid('msg'),
-              role: 'assistant',
-              time: nowTime(),
-              text: resp.text,
-              trace: resp.trace || [],
-              pendingApproval: resp.pendingApproval || null
-            });
-            saveState(); renderMain();
+            const listEl = document.getElementById('chat-messages-list');
+            if (listEl) {
+              const typing = document.createElement('div');
+              typing.id = 'chat-typing-indicator';
+              typing.className = 'flex justify-start';
+              typing.innerHTML = `<div class="surface card-pad text-xs flex items-center gap-2" style="color:var(--muted);"><span class="w-2 h-2 rounded-full pulse-dot" style="background:var(--accent);"></span><span>${escapeHtml(agent.name)} is thinking...</span></div>`;
+              listEl.appendChild(typing);
+              listEl.scrollTop = listEl.scrollHeight;
+            }
+
+            try {
+              const resp = await runAgentChatTurn(agent, text);
+              state.chats[agent.id].push({
+                id: uid('msg'),
+                role: 'assistant',
+                time: nowTime(),
+                text: resp.text,
+                trace: resp.trace || [],
+                pendingApproval: resp.pendingApproval || null
+              });
+              saveState(); renderMain();
+            } finally {
+              isSending = false;
+            }
           };
           sendBtn.addEventListener('click', handleSend);
           chatInput.addEventListener('keydown', e => {
@@ -2965,7 +3118,16 @@ ${ratchetLines}`;
 
         // Wiki listeners
         const ws = document.getElementById('wiki-search-input');
-        if (ws) ws.addEventListener('input', e => { state.ui.wikiSearch = e.target.value; renderMain(); });
+        if (ws) ws.addEventListener('input', e => {
+          const pos = e.target.selectionStart;
+          state.ui.wikiSearch = e.target.value;
+          renderMain();
+          const nextInput = document.getElementById('wiki-search-input');
+          if (nextInput) {
+            nextInput.focus();
+            if (typeof pos === 'number') nextInput.setSelectionRange(pos, pos);
+          }
+        });
         document.querySelectorAll('[data-wiki-cat]').forEach(b => b.addEventListener('click', () => {
           state.ui.wikiCategory = b.dataset.wikiCat; saveState(); renderMain();
         }));
@@ -3072,6 +3234,25 @@ ${ratchetLines}`;
       renderMain();
       if (bgInterval) clearInterval(bgInterval);
       bgInterval = setInterval(tickBackgroundTasks, 1600);
+
+      // Android hardware back button handling via @capacitor/app
+      const appPlugin = capPlugin('App');
+      if (appPlugin && isNativeCap()) {
+        appPlugin.addListener('backButton', () => {
+          const dialog = document.getElementById('app-sheet-dialog');
+          if (dialog && dialog.open) {
+            dialog.close();
+            return;
+          }
+          if (state.ui.tab !== 'chat') {
+            state.ui.tab = 'chat';
+            saveState();
+            renderMain();
+            return;
+          }
+          appPlugin.minimizeApp().catch(() => {});
+        });
+      }
     })();
   </script>
 </body>
