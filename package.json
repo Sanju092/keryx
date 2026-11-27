@@ -4,6 +4,7 @@
   "private": true,
   "description": "Keryx — Mobile-first personal agentic platform (Capacitor Android & iOS)",
   "scripts": {
+    "build:assets": "npx @tailwindcss/cli -i src/input.css -o www/vendor/tailwind.css --minify && node -e \"const fs=require('fs');fs.mkdirSync('www/vendor',{recursive:true});fs.copyFileSync('node_modules/lucide/dist/umd/lucide.min.js','www/vendor/lucide.min.js');\"",
     "cap:add:android": "npx cap add android",
     "cap:add:ios": "npx cap add ios",
     "cap:sync": "npx cap sync",
@@ -23,6 +24,9 @@
     "@capacitor/status-bar": "^8.0.4"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.6.3"
+    "@capacitor/cli": "^8.6.3",
+    "@tailwindcss/cli": "^4.3.5",
+    "lucide": "^1.82.0",
+    "tailwindcss": "^4.3.5"
   }
 }

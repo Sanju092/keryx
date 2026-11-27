@@ -5,8 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="color-scheme" content="light dark">
   <title>Keryx — Personal Agentic Platform</title>
-  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <link rel="stylesheet" href="./vendor/tailwind.css" />
+  <script src="./vendor/lucide.min.js"></script>
+  <script src="./js/storage.js"></script>
+  <script src="./js/markdown.js"></script>
+  <script src="./js/engine.js"></script>
   <style>
     :root {
       color-scheme: light;
@@ -599,27 +602,13 @@
         }
       };
 
-      // Capacitor 8 Native Bridge Helpers (gracefully no-op in web browser)
-      function capPlugin(name) {
-        try {
-          return window.Capacitor?.Plugins?.[name] || null;
-        } catch (e) {
-          return null;
-        }
-      }
-      function isNativeCap() {
-        try {
-          return Boolean(window.Capacitor?.isNativePlatform?.());
-        } catch (e) {
-          return false;
-        }
-      }
+      // Capacitor & Engine Bridges
+      const capPlugin = (n) => window.KeryxEngine.capPlugin(n);
+      const isNativeCap = () => window.KeryxEngine.isNativeCap();
       async function syncNativeStatusBar(mode) {
         const sb = capPlugin('StatusBar');
         if (!sb || !isNativeCap()) return;
-        try {
-          await sb.setStyle({ style: mode === 'dark' ? 'DARK' : 'LIGHT' });
-        } catch (e) {}
+        try { await sb.setStyle({ style: mode === 'dark' ? 'DARK' : 'LIGHT' }); } catch (e) {}
       }
       async function sendNativeNotification(title, body) {
         const ln = capPlugin('LocalNotifications');
@@ -643,39 +632,6 @@
         window.open(url, '_blank', 'noopener,noreferrer');
       }
 
-      // Native-first JSON POST (uses CapacitorHttp on Android/iOS to bypass WebView CORS, fetch() on Web)
-      async function postJsonRequest(url, headers, bodyObj) {
-        const capHttp = capPlugin('CapacitorHttp');
-        if (capHttp && isNativeCap()) {
-          const res = await capHttp.post({
-            url,
-            headers,
-            data: bodyObj,
-            connectTimeout: 30000,
-            readTimeout: 120000
-          });
-          let data = res.data;
-          if (typeof data === 'string') {
-            try { data = JSON.parse(data); } catch (e) { data = { message: data }; }
-          }
-          return { ok: res.status >= 200 && res.status < 300, status: res.status, statusText: '', data: data || {} };
-        }
-        const res = await fetch(url, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(bodyObj)
-        });
-        const data = await res.json().catch(() => ({}));
-        return { ok: res.ok, status: res.status, statusText: res.statusText, data };
-      }
-
-      function normalizeChatCompletionsUrl(rawBase) {
-        const clean = String(rawBase || '').trim().replace(/\/+$/, '');
-        if (!clean) return '';
-        if (/\/chat\/completions$/i.test(clean)) return clean;
-        return clean + '/chat/completions';
-      }
-
       function nowTime() {
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       }
@@ -688,6 +644,7 @@
           ui: {
             tab: 'chat',
             hubSubTab: 'tools',
+            wikiViewMode: 'wiki',
             preset: 'editorial',
             mode: 'light',
             density: 'comfortable',
@@ -700,6 +657,24 @@
             wikiCategory: 'all',
             taskFilter: 'all'
           },
+          vault: {
+            encrypted: false,
+            locked: false,
+            encryptedPayload: null
+          },
+          search: {
+            provider: 'duckduckgo',
+            apiKey: '',
+            endpoint: ''
+          },
+          memory: [
+            { id: 'mem_1', key: 'Platform Policy', value: 'Balanced harness with human Approval Gate ON for external sends.', updatedAt: 'Today, 17:30' },
+            { id: 'mem_2', key: 'Knowledge Pattern', value: 'Maintain Karpathy-style atomic LLM Wiki pages cross-linked via [[Wiki Index]].', updatedAt: 'Today, 17:35' }
+          ],
+          flows: [
+            { id: 'flow_research_wiki', name: 'Research → Wiki → Verify', agentIds: ['agent_researcher', 'agent_librarian'] },
+            { id: 'flow_full_ops', name: 'Research → Wiki → Ops Alert', agentIds: ['agent_researcher', 'agent_librarian', 'agent_ops'] }
+          ],
           providers: {
             gemini: { apiKey: '', baseUrl: '' },
             openai: { apiKey: '', baseUrl: '' },
@@ -723,6 +698,14 @@
             maxRetries: 2,
             requireVerificationGate: true,
             autoUpdateWikiLog: true,
+            enableToolCalling: true,
+            enableStreaming: true,
+            autoLearnSkills: false,
+            maxOutputTokens: 4096,
+            contextTurns: 12,
+            wikiRetrievalMode: 'smart',
+            wikiMaxPages: 6,
+            wikiSnippetChars: 1100,
             ratchetRules: [
               { id: 'r_1', rule: 'Never mark a background task complete until the Verification Gate passes with 0 schema errors.', source: 'Core Harness' },
               { id: 'r_2', rule: 'Always read wiki/index.md before creating a new wiki page to prevent duplicate entity pages.', source: 'Wiki Hygiene' },
@@ -982,42 +965,54 @@
         };
       }
 
-      function loadState() {
+      function ensureStateDefaults(st) {
+        const def = createDefaultState();
+        if (!st || typeof st !== 'object') return def;
+        st.ui = Object.assign({}, def.ui, st.ui || {});
+        st.providers = Object.assign({}, def.providers, st.providers || {});
+        if (st.providers.custom) {
+          const cb = (st.providers.custom.baseUrl || '').trim();
+          const ck = (st.providers.custom.apiKey || '').trim();
+          if (!cb || cb === 'https://api.example.com/v1') {
+            st.providers.custom.baseUrl = ck.startsWith('nvapi-') ? 'https://integrate.api.nvidia.com/v1' : '';
+          }
+        }
+        st.obsidian = Object.assign({}, def.obsidian, st.obsidian || {});
+        st.harness = Object.assign({}, def.harness, st.harness || {});
+        if (!Array.isArray(st.harness.ratchetRules)) st.harness.ratchetRules = def.harness.ratchetRules;
+        st.vault = Object.assign({}, def.vault, st.vault || {});
+        st.search = Object.assign({}, def.search, st.search || {});
+        if (!Array.isArray(st.memory)) st.memory = def.memory;
+        if (!Array.isArray(st.flows)) st.flows = def.flows;
+        if (!Array.isArray(st.agents) || !st.agents.length) st.agents = def.agents;
+        if (!Array.isArray(st.tools)) st.tools = def.tools;
+        if (!Array.isArray(st.skills)) st.skills = def.skills;
+        if (!Array.isArray(st.mcps)) st.mcps = def.mcps;
+        if (!Array.isArray(st.connectors)) st.connectors = def.connectors;
+        if (!Array.isArray(st.wiki)) st.wiki = def.wiki;
+        if (!st.chats || typeof st.chats !== 'object') st.chats = def.chats;
+        if (!Array.isArray(st.tasks)) st.tasks = def.tasks;
+        if (!Array.isArray(st.cronJobs)) st.cronJobs = def.cronJobs;
+        return st;
+      }
+
+      function loadStateSync() {
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
           if (raw) {
             const parsed = JSON.parse(raw);
-            if (parsed && parsed.ui && parsed.agents && parsed.wiki) return parsed;
+            if (parsed && parsed.ui && parsed.agents && parsed.wiki) return ensureStateDefaults(parsed);
           }
         } catch (e) {}
         return createDefaultState();
       }
 
-      let state = loadState();
-      if (state.providers && state.providers.custom) {
-        const cb = (state.providers.custom.baseUrl || '').trim();
-        const ck = (state.providers.custom.apiKey || '').trim();
-        if (!cb || cb === 'https://api.example.com/v1') {
-          state.providers.custom.baseUrl = ck.startsWith('nvapi-') ? 'https://integrate.api.nvidia.com/v1' : '';
-        }
-      }
-      if (!state.obsidian) {
-        state.obsidian = {
-          vaultName: 'My Mobile Vault',
-          folderPath: 'Keryx-Wiki',
-          syncMode: 'two-way',
-          requireApprovalOnWrite: true,
-          connected: false,
-          lastSync: 'Not synced yet',
-          importedCount: 0
-        };
-      }
+      let state = loadStateSync();
       let bgInterval = null;
+      const activeBgRuns = new Set();
 
       function saveState() {
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        } catch (e) {}
+        window.KeryxStorage.savePersistedState(state).catch(() => {});
       }
 
       function applyTheme() {
@@ -1035,12 +1030,17 @@
 
         syncNativeStatusBar(mode);
 
-        // Header live/sim badge
-        const hasAnyKey = Object.values(state.providers).some(p => p.apiKey && p.apiKey.trim().length > 4);
+        // Header live/sim/lock badge
+        const hasAnyKey = Object.keys(state.providers).some(k => window.KeryxEngine.hasLiveProviderConfig(state, k));
         const modeBadge = document.getElementById('header-mode-badge');
         if (modeBadge) {
-          modeBadge.textContent = hasAnyKey ? 'BYOK' : 'Sim';
-          modeBadge.className = hasAnyKey ? 'pill pill-success text-[10px]' : 'pill pill-muted text-[10px]';
+          if (state.vault && state.vault.locked) {
+            modeBadge.textContent = 'Locked';
+            modeBadge.className = 'pill pill-warn text-[10px]';
+          } else {
+            modeBadge.textContent = hasAnyKey ? 'BYOK' : 'Sim';
+            modeBadge.className = hasAnyKey ? 'pill pill-success text-[10px]' : 'pill pill-muted text-[10px]';
+          }
         }
 
         // Sidebar approval toggle sync
@@ -1094,50 +1094,8 @@
         }
       }
 
-      function escapeHtml(str) {
-        return String(str || '')
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;');
-      }
-
-      function renderMarkdownWithWikiLinks(md) {
-        const lines = String(md || '').split('\n');
-        let html = '';
-        let inList = false;
-        for (const raw of lines) {
-          let line = escapeHtml(raw);
-          // Inline bold & code
-          line = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-          line = line.replace(/`([^`]+)`/g, '<code class="font-mono-code text-[12px] px-1 py-0.5 rounded" style="background:var(--surface-2);">$1</code>');
-          // Wikilinks [[Title]]
-          line = line.replace(/\[\[([^\]]+)\]\]/g, (_, title) => {
-            return '<button type="button" class="wikilink" data-wikilink="' + title + '">[[' + title + ']]</button>';
-          });
-
-          if (line.startsWith('# ')) {
-            if (inList) { html += '</ul>'; inList = false; }
-            html += '<h2 class="font-display text-lg font-bold mt-1 mb-2">' + line.slice(2) + '</h2>';
-          } else if (line.startsWith('## ')) {
-            if (inList) { html += '</ul>'; inList = false; }
-            html += '<h3 class="font-display text-sm font-bold mt-3.5 mb-1.5">' + line.slice(3) + '</h3>';
-          } else if (line.startsWith('- ')) {
-            if (!inList) { html += '<ul class="list-disc pl-5 space-y-1 my-1.5">'; inList = true; }
-            html += '<li class="text-[13.5px]">' + line.slice(2) + '</li>';
-          } else if (/^\d+\.\s/.test(line)) {
-            if (inList) { html += '</ul>'; inList = false; }
-            html += '<p class="text-[13.5px] my-1">' + line + '</p>';
-          } else if (line.trim() === '') {
-            if (inList) { html += '</ul>'; inList = false; }
-          } else {
-            if (inList) { html += '</ul>'; inList = false; }
-            html += '<p class="text-[13.5px] my-1.5">' + line + '</p>';
-          }
-        }
-        if (inList) html += '</ul>';
-        return html;
-      }
+      const escapeHtml = (str) => window.KeryxMarkdown.escapeHtml(str);
+      const renderMarkdownWithWikiLinks = (md) => window.KeryxMarkdown.renderMarkdown(md);
 
       function getProviderModels(providerKey) {
         const defaults = (PROVIDERS[providerKey] && PROVIDERS[providerKey].models) || [];
@@ -1165,8 +1123,8 @@
       }
 
       function isApprovalActiveForAgent(agent) {
-        if (!state.harness.globalApprovalGate) return false;
-        if (agent && agent.approvalGate === false) return false;
+        if (!state.harness.globalApprovalGate || state.harness.defaultPolicy === 'autopilot') return false;
+        if (agent && agent.approvalGate === false && state.harness.defaultPolicy !== 'strict') return false;
         return true;
       }
 
@@ -1183,7 +1141,7 @@
 ## 1. Identity, Scope & Stack
 - Runtime: Keryx Personal Agentic Platform (Mobile-first + Background Queue + LLM Wiki).
 - Active Policy: **${state.harness.defaultPolicy.toUpperCase()}** | Global Approval Gate: **${state.harness.globalApprovalGate ? 'ENABLED' : 'DISABLED'}**.
-- Budgets: maxSteps=${state.harness.maxSteps}, maxRetries=${state.harness.maxRetries} per task.
+- Budgets: maxSteps=${state.harness.maxSteps}, maxRetries=${state.harness.maxRetries}, maxOutputTokens=${state.harness.maxOutputTokens || 4096}.
 - Registered Agents:
 ${activeAgents}
 
@@ -1208,8 +1166,8 @@ ${activeAgents}
 ${ratchetLines}`;
       }
 
-      // Background Task Engine
-      function enqueueBackgroundTask({ title, agentId, schedule, requiresExternalSend, wikiWriteTitle }) {
+      // Background Task Engine (Real async execution + Cron scheduler)
+      function enqueueBackgroundTask({ title, agentId, schedule, requiresExternalSend, wikiWriteTitle, wikiCategory, rawSource, flowAgentIds }) {
         const agent = getAgent(agentId);
         const task = {
           id: uid('task'),
@@ -1224,9 +1182,13 @@ ${ratchetLines}`;
           pendingAction: null,
           requiresExternalSend: !!requiresExternalSend,
           wikiWriteTitle: wikiWriteTitle || null,
+          wikiCategory: wikiCategory || 'sources',
+          rawSource: rawSource || '',
+          flowAgentIds: Array.isArray(flowAgentIds) ? flowAgentIds : null,
+          output: '',
           todos: [
             { text: 'Orient via AGENTS.md & [[Wiki Index]]', status: 'active' },
-            { text: 'Execute assigned tools & skills (' + (agent.skillIds.length || 1) + ' active)', status: 'pending' },
+            { text: 'Execute assigned tools, skills & live model', status: 'pending' },
             { text: requiresExternalSend ? 'Dispatch outbound connector update' : 'Synthesize findings & update LLM Wiki', status: 'pending' },
             { text: 'Run Harness Verification Gate (schema + critic)', status: 'pending' }
           ],
@@ -1240,107 +1202,194 @@ ${ratchetLines}`;
         updateBadges();
         if (state.ui.tab === 'tasks') renderMain();
         showToast(`Queued: ${task.title}`, 'success');
+        runBackgroundTaskAsync(task);
         return task;
       }
 
-      function tickBackgroundTasks() {
-        let changed = false;
-        for (const task of state.tasks) {
-          if (task.status !== 'running') continue;
+      async function runBackgroundTaskAsync(task) {
+        if (!task || task.status !== 'running' || activeBgRuns.has(task.id)) return;
+        activeBgRuns.add(task.id);
+        try {
           const agent = getAgent(task.agentId);
-          const activeIdx = task.todos.findIndex(t => t.status === 'active' || t.status === 'pending');
-          if (activeIdx === -1) {
-            task.status = 'completed';
-            changed = true;
-            continue;
+          task.todos[0].status = 'done';
+          task.todos[1].status = 'active';
+          task.stepsUsed = 1;
+          task.logs.push({ time: nowTime(), type: 'orient', text: `Read AGENTS.md & Wiki Index (${state.wiki.length} pages).` });
+          saveState();
+          if (state.ui.tab === 'tasks') renderMain();
+
+          let prompt = task.title;
+          if (task.rawSource) {
+            prompt += `\n\nRaw Source Notes:\n${task.rawSource}`;
+          }
+          if (task.wikiWriteTitle) {
+            prompt += `\n\nFormat the output cleanly as Markdown suitable for LLM Wiki page "[[${task.wikiWriteTitle}]]".`;
           }
 
-          // Mark current step active if pending
-          if (task.todos[activeIdx].status === 'pending') {
-            task.todos[activeIdx].status = 'active';
-            changed = true;
-            continue;
+          let finalOutput = '';
+          if (task.flowAgentIds && task.flowAgentIds.length > 1) {
+            let carry = prompt;
+            for (const fid of task.flowAgentIds) {
+              const stepAgent = getAgent(fid);
+              task.logs.push({ time: nowTime(), type: 'tool', text: `Flow step → ${stepAgent.name} (${stepAgent.model})` });
+              const res = await window.KeryxEngine.runAgentLoop({
+                agent: stepAgent,
+                userText: carry,
+                priorTurns: [],
+                state,
+                compileAgentsMdFn: compileAgentsMd
+              });
+              if (res.error) throw new Error(res.error.message);
+              carry = `Previous step (${stepAgent.name}) output:\n${res.text}\n\nContinue objective: ${task.title}`;
+              finalOutput = res.text;
+              task.stepsUsed += 1;
+            }
+          } else {
+            const resp = await window.KeryxEngine.runAgentLoop({
+              agent,
+              userText: prompt,
+              priorTurns: [],
+              state,
+              compileAgentsMdFn: compileAgentsMd
+            });
+            if (resp.error) {
+              task.status = 'failed';
+              task.todos[1].status = 'waiting';
+              task.verification = { passed: false, notes: resp.error.message };
+              task.logs.push({ time: nowTime(), type: 'gate', text: `FAILED: ${resp.error.message}` });
+              saveState(); updateBadges();
+              if (state.ui.tab === 'tasks') renderMain();
+              return;
+            }
+            if (resp.pendingApproval) {
+              task.status = 'awaiting_approval';
+              task.todos[1].status = 'done';
+              task.todos[2].status = 'waiting';
+              task.pendingAction = resp.pendingApproval;
+              task.logs.push({ time: nowTime(), type: 'gate', text: `PAUSED: Awaiting approval for ${resp.pendingApproval.tool}.` });
+              saveState(); updateBadges();
+              sendNativeNotification('Approval Required', `${task.title} — ${resp.pendingApproval.tool}`);
+              if (state.ui.tab === 'tasks') renderMain();
+              return;
+            }
+            finalOutput = resp.text;
+            task.stepsUsed += Math.max(1, (resp.trace || []).length);
           }
 
-          task.stepsUsed += 1;
-          changed = true;
+          task.output = finalOutput;
+          task.todos[1].status = 'done';
+          task.todos[2].status = 'active';
+          saveState();
+          if (state.ui.tab === 'tasks') renderMain();
 
-          // Step 2 (index 2): Check if approval gate should pause
-          if (activeIdx === 2 && task.requiresExternalSend && isApprovalActiveForAgent(agent) && !task._approvedOnce) {
+          // Step 2: Approval gate for outbound connector if requested
+          if (task.requiresExternalSend && isApprovalActiveForAgent(agent) && !task._approvedOnce) {
+            const conn = state.connectors.find(c => c.enabled && agent.connectorIds.includes(c.id))
+              || state.connectors.find(c => c.enabled)
+              || state.connectors[0];
             task.status = 'awaiting_approval';
-            task.todos[activeIdx].status = 'waiting';
-            const conn = state.connectors.find(c => agent.connectorIds.includes(c.id)) || state.connectors[0];
+            task.todos[2].status = 'waiting';
             task.pendingAction = {
+              kind: 'connector',
+              connectorId: conn ? conn.id : null,
+              title: task.title,
+              message: finalOutput.slice(0, 1500),
               tool: conn ? `${conn.name} (${conn.handle})` : 'Outbound Connector',
-              action: `Send external message for "${task.title}"`,
+              action: `Send output for "${task.title}"`,
               reason: 'Balanced Harness requires approval for external sends.'
             };
             task.logs.push({ time: nowTime(), type: 'gate', text: `PAUSED: Awaiting approval for ${task.pendingAction.tool}.` });
-            showToast(`Approval needed: ${task.title}`, 'warn');
+            saveState(); updateBadges();
             sendNativeNotification('Approval Required', `${task.title} — ${task.pendingAction.tool}`);
-            continue;
+            if (state.ui.tab === 'tasks') renderMain();
+            return;
           }
 
-          // Complete current step
-          task.todos[activeIdx].status = 'done';
-          if (activeIdx === 0) {
-            task.logs.push({ time: nowTime(), type: 'orient', text: `Read AGENTS.md & Wiki Index (${state.wiki.length} pages).` });
-          } else if (activeIdx === 1) {
-            const toolNames = state.tools.filter(t => agent.toolIds.includes(t.id)).slice(0, 2).map(t => t.name).join(', ') || 'wiki_read_write';
-            task.logs.push({ time: nowTime(), type: 'tool', text: `Ran [${toolNames}] — gathered structured output cleanly.` });
-          } else if (activeIdx === 2) {
-            if (task.wikiWriteTitle) {
-              upsertWikiPageFromAgent(task.wikiWriteTitle, agent.name, task.title);
-              task.logs.push({ time: nowTime(), type: 'tool', text: `Updated LLM Wiki page [[${task.wikiWriteTitle}]] & appended [[Wiki Log]].` });
-            } else {
-              task.logs.push({ time: nowTime(), type: 'tool', text: task.requiresExternalSend ? 'Dispatched connector payload (approved).' : 'Synthesized structured draft with [[Wiki Index]] references.' });
+          if (task.requiresExternalSend) {
+            const conn = state.connectors.find(c => c.id === task.pendingAction?.connectorId)
+              || state.connectors.find(c => c.enabled && agent.connectorIds.includes(c.id))
+              || state.connectors.find(c => c.enabled);
+            if (conn) {
+              try {
+                const res = await window.KeryxEngine.dispatchConnector(conn, finalOutput.slice(0, 1500), task.title);
+                task.logs.push({ time: nowTime(), type: 'tool', text: res.detail });
+              } catch (connErr) {
+                task.logs.push({ time: nowTime(), type: 'gate', text: `Connector notice: ${connErr.message}` });
+              }
             }
-          } else if (activeIdx === 3) {
-            task.verification = { passed: true, notes: 'Schema valid, 0 placeholders, wiki links verified.' };
-            task.logs.push({ time: nowTime(), type: 'verify', text: 'VERIFICATION GATE PASSED: All harness checks green.' });
-            task.status = 'completed';
-            showToast(`Completed: ${task.title}`, 'success');
-            sendNativeNotification('Task Completed', task.title);
           }
 
-          // Advance next step to active
-          if (activeIdx + 1 < task.todos.length) {
-            task.todos[activeIdx + 1].status = 'active';
+          if (task.wikiWriteTitle) {
+            const noteBody = window.KeryxEngine.hasLiveProviderConfig(state, agent.provider)
+              ? finalOutput
+              : `# ${task.wikiWriteTitle}\n\n${task.rawSource ? '## Source Notes\n' + task.rawSource + '\n\n' : ''}## Curated Summary (${agent.name})\n${finalOutput}\n\n## Links\n- [[Wiki Index]] · [[Wiki Log]]`;
+            window.KeryxEngine.upsertWikiPage(state, {
+              title: task.wikiWriteTitle,
+              category: task.wikiCategory || 'sources',
+              content: noteBody,
+              agentName: agent.name
+            });
+            task.logs.push({ time: nowTime(), type: 'tool', text: `Updated LLM Wiki page [[${task.wikiWriteTitle}]] & appended [[Wiki Log]].` });
           }
-        }
 
-        if (changed) {
-          saveState();
-          updateBadges();
-          if (state.ui.tab === 'tasks' || state.ui.tab === 'wiki') {
-            renderMain();
-          }
+          task.todos[2].status = 'done';
+          task.todos[3].status = 'active';
+          const ver = window.KeryxEngine.runSchemaVerify(state, finalOutput);
+          task.todos[3].status = 'done';
+          task.verification = {
+            passed: ver.passed,
+            notes: ver.passed
+              ? `Schema valid, 0 placeholders (${ver.wikiCount} wiki pages, ${ver.brokenLinks.length} unresolved links).`
+              : ver.issues.join(' ')
+          };
+          task.logs.push({ time: nowTime(), type: 'verify', text: 'VERIFICATION GATE PASSED: All harness checks green.' });
+          task.status = 'completed';
+          saveState(); updateBadges();
+          showToast(`Completed: ${task.title}`, 'success');
+          sendNativeNotification('Task Completed', task.title);
+          if (state.ui.tab === 'tasks' || state.ui.tab === 'wiki') renderMain();
+        } catch (err) {
+          task.status = 'failed';
+          task.verification = { passed: false, notes: err?.message || 'Task execution failed' };
+          task.logs.push({ time: nowTime(), type: 'gate', text: `ERROR: ${err?.message || 'Unknown error'}` });
+          saveState(); updateBadges();
+          if (state.ui.tab === 'tasks') renderMain();
+        } finally {
+          activeBgRuns.delete(task.id);
         }
       }
 
+      function tickBackgroundTasks() {
+        const nowMs = Date.now();
+        let cronTriggered = false;
+        for (const c of state.cronJobs) {
+          if (window.KeryxEngine.shouldCronRunNow(c, nowMs)) {
+            c.lastRunTs = nowMs;
+            c.lastRun = 'Today ' + nowTime();
+            cronTriggered = true;
+            enqueueBackgroundTask({
+              title: `${c.name}: ${c.prompt || 'Scheduled sweep'}`,
+              agentId: c.agentId,
+              schedule: c.schedule,
+              requiresExternalSend: c.agentId === 'agent_ops'
+            });
+          }
+        }
+        for (const task of state.tasks) {
+          if (task.status === 'running' && !activeBgRuns.has(task.id)) {
+            runBackgroundTaskAsync(task);
+          }
+        }
+        if (cronTriggered) saveState();
+      }
+
       function upsertWikiPageFromAgent(title, agentName, taskTitle) {
-        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-        let existing = state.wiki.find(w => w.title.toLowerCase() === title.toLowerCase() || w.slug === slug);
-        const body = `# ${title}\n\nGenerated in background by **${agentName}** from task: *${taskTitle}*.\n\n## Key Points\n- Verified under [[Agent Harness Architecture]] guardrails.\n- Cross-linked with [[Wiki Index]] and [[Hermes Agent Pattern]].\n- Logged automatically to [[Wiki Log]].`;
-        if (existing) {
-          existing.content = body;
-          existing.updatedAt = 'Today, ' + nowTime();
-        } else {
-          state.wiki.push({
-            id: uid('wiki'),
-            slug: slug || uid('page'),
-            title: title,
-            category: 'sources',
-            updatedAt: 'Today, ' + nowTime(),
-            content: body
-          });
-        }
-        // Append to Wiki Log
-        const logPage = state.wiki.find(w => w.id === 'wiki_log' || w.slug === 'wiki-log');
-        if (logPage) {
-          logPage.content += `\n- **${nowTime()}** — ${agentName} updated [[${title}]] via background task.`;
-          logPage.updatedAt = 'Today, ' + nowTime();
-        }
+        return window.KeryxEngine.upsertWikiPage(state, {
+          title,
+          category: 'sources',
+          content: `# ${title}\n\nGenerated in background by **${agentName}** from task: *${taskTitle}*.\n\n- Cross-linked with [[Wiki Index]] and [[Wiki Log]].`,
+          agentName
+        });
       }
 
       function updateBadges() {
@@ -1372,22 +1421,7 @@ ${ratchetLines}`;
       }
 
       function hasLiveProviderConfig(providerKey) {
-        const cfg = state.providers[providerKey] || {};
-        const key = (cfg.apiKey || '').trim();
-        if (providerKey === 'custom') {
-          const base = (cfg.baseUrl || '').trim();
-          return base.startsWith('https://') && base !== 'https://api.example.com/v1' && (key.length > 0 || base.length > 12);
-        }
-        return key.length > 4;
-      }
-
-      function buildWikiContextPrompt() {
-        if (!Array.isArray(state.wiki) || !state.wiki.length) return '';
-        const pages = state.wiki.slice(0, 12).map(p => {
-          const snippet = String(p.content || '').slice(0, 900);
-          return `### [[${p.title}]] (${p.category})\n${snippet}`;
-        }).join('\n\n');
-        return `\n\nLLM Wiki Context (${state.wiki.length} pages):\n${pages}`;
+        return window.KeryxEngine.hasLiveProviderConfig(state, providerKey);
       }
 
       function scrollChatToBottom(instant) {
@@ -1399,182 +1433,21 @@ ${ratchetLines}`;
         }
       }
 
-      // Live BYOK LLM Call (Gemini, OpenAI, Anthropic, OpenRouter, Custom HTTPS + inline error reporting + simulator fallback when unconfigured)
-      async function runAgentChatTurn(agent, userText, onStep) {
-        const stepUpdate = (idx, detail) => {
-          if (typeof onStep === 'function') onStep(idx, detail);
-        };
-        const pause = (ms) => new Promise(r => setTimeout(r, ms));
-
-        stepUpdate(0, 'Loaded AGENTS.md & [[Wiki Index]]');
-        await pause(120);
-        stepUpdate(1, 'Activated agent skills & tools');
-        await pause(120);
-
-        const providerCfg = state.providers[agent.provider] || {};
-        const apiKey = (providerCfg.apiKey || '').trim();
-        const customBase = (providerCfg.baseUrl || '').trim();
-        const isCustomHttps = agent.provider === 'custom' && customBase.startsWith('https://');
-        const canCallLive = hasLiveProviderConfig(agent.provider) && (['gemini', 'openai', 'anthropic', 'openrouter'].includes(agent.provider) || isCustomHttps);
-
-        // Build multi-turn context: last 12 chat turns (excluding the just-pushed user message)
+      async function runAgentChatTurn(agent, userText, onStep, onStreamText) {
         const thread = state.chats[agent.id] || [];
-        const priorTurns = thread.slice(0, -1).slice(-12).filter(m => m.text && !m.error).map(m => ({
+        const priorTurns = thread.slice(0, -1).filter(m => m.text && !m.error).map(m => ({
           role: m.role === 'user' ? 'user' : 'assistant',
           text: m.text
         }));
-
-        if (canCallLive) {
-          stepUpdate(2, `Calling ${agent.provider}/${agent.model}...`);
-          const sysPrompt = agent.systemPrompt + '\n\nActive Harness Rules:\n' + compileAgentsMd() + buildWikiContextPrompt();
-          try {
-            let reply = '';
-            let turnsSent = priorTurns.length + 1;
-
-            if (agent.provider === 'gemini') {
-              const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(agent.model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-              const contents = [
-                ...priorTurns.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] })),
-                { role: 'user', parts: [{ text: userText }] }
-              ];
-              const res = await postJsonRequest(url, { 'Content-Type': 'application/json' }, {
-                system_instruction: { parts: [{ text: sysPrompt }] },
-                contents,
-                generationConfig: { temperature: agent.temperature }
-              });
-              const data = res.data;
-              if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status} ${res.statusText}`);
-              reply = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
-              if (!reply) throw new Error('Empty response from Gemini model');
-            } else if (agent.provider === 'anthropic') {
-              const messages = [
-                ...priorTurns.map(m => ({ role: m.role, content: m.text })),
-                { role: 'user', content: userText }
-              ];
-              const res = await postJsonRequest('https://api.anthropic.com/v1/messages', {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01',
-                'anthropic-dangerous-direct-browser-access': 'true'
-              }, {
-                model: agent.model,
-                max_tokens: 2048,
-                temperature: agent.temperature,
-                system: sysPrompt,
-                messages
-              });
-              const data = res.data;
-              if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status} ${res.statusText}`);
-              reply = (data?.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
-              if (!reply) throw new Error('Empty response from Anthropic model');
-            } else {
-              const endpoint = agent.provider === 'openrouter'
-                ? 'https://openrouter.ai/api/v1/chat/completions'
-                : agent.provider === 'custom'
-                ? normalizeChatCompletionsUrl(customBase)
-                : 'https://api.openai.com/v1/chat/completions';
-              const headers = { 'Content-Type': 'application/json' };
-              if (apiKey) headers['Authorization'] = 'Bearer ' + apiKey;
-              if (agent.provider === 'openrouter') {
-                headers['X-Title'] = 'Keryx Personal Agentic Platform';
-              }
-              const messages = [
-                { role: 'system', content: sysPrompt },
-                ...priorTurns.map(m => ({ role: m.role, content: m.text })),
-                { role: 'user', content: userText }
-              ];
-              const res = await postJsonRequest(endpoint, headers, {
-                model: agent.model,
-                temperature: agent.temperature,
-                messages
-              });
-              const data = res.data;
-              if (!res.ok) throw new Error(data?.error?.message || data?.detail || data?.message || `HTTP ${res.status} ${res.statusText}`);
-              const rawContent = data?.choices?.[0]?.message?.content;
-              if (Array.isArray(rawContent)) {
-                reply = rawContent.map(part => (typeof part === 'string' ? part : part?.text || '')).join('');
-              } else {
-                reply = rawContent || data?.choices?.[0]?.message?.reasoning_content || '';
-              }
-              if (!reply) throw new Error(`Empty response from ${agent.provider} model`);
-            }
-
-            stepUpdate(3, 'Verified response via Harness Gate');
-            await pause(120);
-            return {
-              text: reply,
-              trace: [
-                { step: 'Orient', detail: `Loaded AGENTS.md & ${state.wiki.length} LLM Wiki pages`, status: 'ok' },
-                { step: 'Context', detail: `Sent ${turnsSent} chat turns to ${agent.provider}/${agent.model}`, status: 'ok' },
-                { step: 'Verify Gate', detail: 'Schema & output format verified cleanly', status: 'ok' }
-              ]
-            };
-          } catch (err) {
-            stepUpdate(3, 'Captured API error cleanly');
-            const rawErr = err && err.message ? err.message : 'Request failed';
-            const errMsg = /failed to fetch/i.test(rawErr) && !isNativeCap()
-              ? `${rawErr} — Browser CORS blocked this endpoint. Install the Keryx Android APK (uses native CapacitorHttp) or use a CORS-enabled proxy.`
-              : rawErr;
-            return {
-              text: `Could not reach **${PROVIDERS[agent.provider]?.name || agent.provider}** using Model ID \`${agent.model}\`.\n\nCheck your API key, HTTPS endpoint, or exact Model ID in **Provider Vault**.`,
-              error: {
-                provider: agent.provider,
-                model: agent.model,
-                message: errMsg
-              },
-              trace: [
-                { step: 'Orient', detail: `Loaded AGENTS.md & ${state.wiki.length} LLM Wiki pages`, status: 'ok' },
-                { step: 'Execute', detail: `${agent.provider}/${agent.model} failed: ${errMsg}`, status: 'danger' },
-                { step: 'Escape Hatch', detail: 'Surfaced inline error without silent fallback', status: 'warn' }
-              ]
-            };
-          }
-        }
-
-        // Simulated Hermes + Harness + LLM Wiki response (when no API key is configured)
-        stepUpdate(2, `Running local simulator for ${agent.model}`);
-        await pause(160);
-        const lower = userText.toLowerCase();
-        const needsSend = /telegram|slack|discord|whatsapp|send|notify|webhook|email/.test(lower);
-        const mentionsWiki = /wiki|note|ingest|index|lint|knowledge/.test(lower);
-        const toolsUsed = state.tools.filter(t => agent.toolIds.includes(t.id)).slice(0, 2).map(t => t.name);
-        const skillsUsed = state.skills.filter(s => agent.skillIds.includes(s.id)).map(s => s.name);
-
-        if (needsSend && isApprovalActiveForAgent(agent)) {
-          stepUpdate(3, 'Paused at Approval Gate');
-          return {
-            text: `I prepared the outbound action for **"${userText.slice(0, 70)}"**, but **Approval Gate is ON**. Review and approve below to dispatch via your connector.`,
-            pendingApproval: {
-              id: uid('appr'),
-              tool: 'Outbound Connector',
-              summary: `Dispatch message: "${userText.slice(0, 90)}"`,
-              status: 'pending'
-            },
-            trace: [
-              { step: 'Orient', detail: `Loaded AGENTS.md (${state.harness.defaultPolicy})`, status: 'ok' },
-              { step: 'Approval Gate', detail: 'Paused external send for human confirmation', status: 'warn' }
-            ]
-          };
-        }
-
-        stepUpdate(3, 'Harness Verification Gate passed');
-        await pause(100);
-        let replyText = `**${agent.name}** processed your request in **Sim mode** using \`${agent.model}\`.\n\n`;
-        if (mentionsWiki) {
-          replyText += `- Checked **[[Wiki Index]]** (${state.wiki.length} pages) and cross-referenced **[[Agent Harness Architecture]]**.\n- Ready to ingest or update a wiki page — tap **Run in Background** to run a full async curation pass.`;
-        } else {
-          replyText += `- Activated skills: ${skillsUsed.length ? skillsUsed.map(s => '`' + s + '`').join(', ') : '`core`'}.\n- Ran tools: ${toolsUsed.length ? toolsUsed.map(t => '`' + t + '`').join(', ') : '`persistent_memory`'}.\n- Harness Verification Gate passed (0 errors). Add a **${PROVIDERS[agent.provider]?.name || agent.provider}** API key below for live responses.`;
-        }
-
-        return {
-          text: replyText,
-          trace: [
-            { step: 'Orient', detail: `Read AGENTS.md & [[Wiki Index]] (${state.wiki.length} pages)`, status: 'ok' },
-            { step: 'Skills', detail: skillsUsed.join(', ') || 'core', status: 'ok' },
-            { step: 'Tools', detail: toolsUsed.join(', ') || 'persistent_memory', status: 'ok' },
-            { step: 'Verify Gate', detail: 'Schema & guardrail check passed', status: 'ok' }
-          ]
-        };
+        return await window.KeryxEngine.runAgentLoop({
+          agent,
+          userText,
+          priorTurns,
+          state,
+          onStep,
+          onStreamText,
+          compileAgentsMdFn: compileAgentsMd
+        });
       }
 
       // ============================
@@ -1673,6 +1546,10 @@ ${ratchetLines}`;
               ${errorHtml}
               ${approvalHtml}
               ${traceHtml}
+              ${!m.error ? `<div class="mt-2 pt-1.5 border-t flex items-center justify-end gap-2" style="border-color:var(--border);">
+                <button type="button" data-copy-reply="${m.id}" class="text-[10.5px] font-medium cursor-pointer" style="color:var(--muted);">Copy</button>
+                <button type="button" data-save-skill="${m.id}" class="text-[10.5px] font-medium cursor-pointer" style="color:var(--accent);">+ Save as SKILL.md</button>
+              </div>` : ''}
             </div>
           </div>`;
         }).join('');
@@ -1705,6 +1582,7 @@ ${ratchetLines}`;
             <div class="flex items-center gap-2 min-w-0">
               <span class="text-xs font-medium truncate">${escapeHtml(agent.role)}</span>
               <span class="pill ${gateOn ? 'pill-success' : 'pill-warn'}">Gate: ${gateOn ? 'ON' : 'OFF'}</span>
+              <span class="pill pill-muted text-[10px]">${state.harness.enableToolCalling !== false ? 'Tools ON' : 'Tools OFF'}</span>
             </div>
             <div class="flex items-center gap-1.5">
               <button data-edit-agent="${agent.id}" class="text-[11px] font-medium underline cursor-pointer" style="color:var(--accent);">Configure</button>
@@ -1722,10 +1600,14 @@ ${ratchetLines}`;
           <div class="surface p-2.5 space-y-2">
             <textarea id="chat-input" rows="2" class="input-field resize-none" placeholder="Ask ${escapeHtml(agent.name)} or dispatch a background task..."></textarea>
             <div class="flex items-center justify-between gap-2 flex-wrap">
-              <div class="flex items-center gap-1.5">
+              <div class="flex items-center gap-1.5 flex-wrap">
                 <button type="button" id="btn-chat-bg" class="btn-ghost px-2.5 py-1.5 text-xs flex items-center gap-1.5" title="Queue in background runner">
                   <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
-                  <span>Run in Background</span>
+                  <span>Background</span>
+                </button>
+                <button type="button" id="btn-chat-flow" class="btn-ghost px-2.5 py-1.5 text-xs flex items-center gap-1" title="Run Multi-Agent Flow">
+                  <i data-lucide="git-branch" class="w-3.5 h-3.5"></i>
+                  <span>Flow</span>
                 </button>
                 <button type="button" id="btn-chat-clear" class="btn-ghost px-2 py-1.5 text-xs" title="Clear thread">Clear</button>
               </div>
@@ -1753,6 +1635,8 @@ ${ratchetLines}`;
             ? '<span class="pill pill-warn">Needs Approval</span>'
             : task.status === 'completed'
             ? '<span class="pill pill-success">Verified Done</span>'
+            : task.status === 'failed'
+            ? '<span class="pill pill-danger">Failed</span>'
             : '<span class="pill pill-muted">' + escapeHtml(task.status) + '</span>';
 
           const todosHtml = task.todos.map(td => {
@@ -1794,6 +1678,11 @@ ${ratchetLines}`;
 
             ${approvalBox}
 
+            ${task.output ? `<details class="text-xs">
+              <summary class="cursor-pointer font-medium select-none" style="color:var(--accent);">View Output</summary>
+              <div class="mt-2 p-2.5 rounded-lg prose-sm" style="background:var(--surface-2);">${renderMarkdownWithWikiLinks(task.output)}</div>
+            </details>` : ''}
+
             <details class="text-xs">
               <summary class="cursor-pointer font-medium select-none" style="color:var(--muted);">Progress log (${task.logs.length}) &amp; Verification Gate</summary>
               <div class="mt-2 space-y-1 font-mono-code text-[11px] p-2.5 rounded-lg" style="background:var(--surface-2);">
@@ -1807,7 +1696,7 @@ ${ratchetLines}`;
             <div class="flex items-center justify-end gap-2 pt-1">
               ${task.status === 'running' ? `<button data-task-pause="${task.id}" class="btn-ghost px-2.5 py-1 text-xs">Pause</button>` : ''}
               ${task.status === 'paused' ? `<button data-task-resume="${task.id}" class="btn-primary px-2.5 py-1 text-xs">Resume</button>` : ''}
-              ${task.status === 'completed' || task.status === 'rejected' ? `<button data-task-rerun="${task.id}" class="btn-ghost px-2.5 py-1 text-xs">Re-run</button>` : ''}
+              ${task.status === 'completed' || task.status === 'rejected' || task.status === 'failed' ? `<button data-task-rerun="${task.id}" class="btn-ghost px-2.5 py-1 text-xs">Re-run</button>` : ''}
               <button data-task-delete="${task.id}" class="btn-ghost px-2.5 py-1 text-xs" style="color:var(--danger);">Remove</button>
             </div>
           </div>`;
@@ -1817,13 +1706,14 @@ ${ratchetLines}`;
           const agent = getAgent(c.agentId);
           return `<div class="surface card-pad flex items-center justify-between gap-3">
             <div class="min-w-0">
-              <div class="flex items-center gap-1.5">
+              <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="font-semibold text-xs truncate">${escapeHtml(c.name)}</span>
                 <span class="pill pill-muted text-[10px]">${escapeHtml(c.schedule)}</span>
               </div>
               <div class="text-[11px] mt-0.5 truncate" style="color:var(--muted);">${agent.emoji} ${escapeHtml(agent.name)} · Last: ${escapeHtml(c.lastRun)}</div>
             </div>
-            <div class="flex items-center gap-2 shrink-0">
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button data-edit-cron="${c.id}" class="btn-ghost px-2 py-1 text-[11px]">Edit</button>
               <button data-cron-run="${c.id}" class="btn-ghost px-2.5 py-1 text-xs">Run</button>
               <div data-cron-toggle="${c.id}" class="toggle-track ${c.enabled ? 'on' : ''}" role="switch" aria-checked="${c.enabled}"><div class="toggle-thumb"></div></div>
             </div>
@@ -1866,9 +1756,12 @@ ${ratchetLines}`;
 
           <!-- Scheduled Cron Jobs -->
           <div class="pt-2 space-y-2.5">
-            <div class="flex items-center justify-between">
-              <h3 class="font-display text-sm font-bold">Scheduled Cron Jobs</h3>
-              <span class="text-[11px]" style="color:var(--muted);">Hermes-style recurring loops</span>
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <h3 class="font-display text-sm font-bold">Scheduled Cron Jobs</h3>
+                <span class="text-[11px]" style="color:var(--muted);">Live wall-clock scheduler while app is open</span>
+              </div>
+              <button id="btn-new-cron" class="btn-ghost px-2.5 py-1 text-xs">+ New Cron</button>
             </div>
             <div class="space-y-2">${cronsHtml}</div>
           </div>
@@ -1940,8 +1833,43 @@ ${ratchetLines}`;
         </div>`;
       }
 
-      // 4. LLM WIKI VIEW (Karpathy-style Markdown Knowledge Base)
+      // 4. LLM WIKI & PERSISTENT MEMORY VIEW
       function renderWikiView() {
+        const viewMode = state.ui.wikiViewMode || 'wiki';
+        if (viewMode === 'memory') {
+          const mems = Array.isArray(state.memory) ? state.memory : [];
+          return `<div class="space-y-3.5 max-w-3xl mx-auto">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <div>
+                <h2 class="font-display text-lg font-bold">Persistent Memory</h2>
+                <p class="text-xs" style="color:var(--muted);">${mems.length} enduring facts injected into agent context (MEMORY.md)</p>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button data-wiki-view-mode="wiki" class="btn-ghost px-2.5 py-1.5 text-xs">LLM Wiki</button>
+                <button data-wiki-view-mode="memory" class="btn-primary px-2.5 py-1.5 text-xs">Memory</button>
+              </div>
+            </div>
+            <div class="surface card-pad space-y-2">
+              <div class="text-xs font-bold">Add Fact to MEMORY.md</div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <input id="mem-new-key" class="input-field text-xs" placeholder="Key (e.g., Preferred Tone)" />
+                <input id="mem-new-val" class="input-field text-xs sm:col-span-2" placeholder="Fact or rule agents should always recall..." />
+              </div>
+              <button id="btn-add-memory" class="btn-primary px-3.5 py-1.5 text-xs">Save Memory Entry</button>
+            </div>
+            <div class="space-y-2">
+              ${mems.length ? mems.map(m => `<div class="surface card-pad flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="text-xs font-bold">${escapeHtml(m.key)}</div>
+                  <div class="text-xs mt-0.5" style="color:var(--muted);">${escapeHtml(m.value)}</div>
+                  <div class="text-[10px] mt-1" style="color:var(--muted);">Updated ${escapeHtml(m.updatedAt || 'Today')}</div>
+                </div>
+                <button data-del-memory="${m.id}" class="btn-ghost px-2 py-1 text-[11px] shrink-0" style="color:var(--danger);">Delete</button>
+              </div>`).join('') : '<div class="surface card-pad text-center text-xs py-6" style="color:var(--muted);">No memory entries yet.</div>'}
+            </div>
+          </div>`;
+        }
+
         const search = (state.ui.wikiSearch || '').toLowerCase();
         const cat = state.ui.wikiCategory || 'all';
         const filtered = state.wiki.filter(p => {
@@ -1967,7 +1895,8 @@ ${ratchetLines}`;
               <h2 class="font-display text-lg font-bold">LLM Wiki</h2>
               <p class="text-xs" style="color:var(--muted);">${state.wiki.length} persistent cross-linked Markdown pages</p>
             </div>
-            <div class="flex items-center gap-1.5">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <button data-wiki-view-mode="memory" class="btn-ghost px-2.5 py-1.5 text-xs">Memory (${(state.memory || []).length})</button>
               <button id="btn-open-obsidian" class="btn-ghost px-2.5 py-1.5 text-xs flex items-center gap-1" title="Configure Obsidian Mobile Vault">
                 <i data-lucide="gem" class="w-3.5 h-3.5" style="color:var(--accent);"></i><span>Obsidian</span>
               </button>
@@ -2050,8 +1979,27 @@ ${ratchetLines}`;
         let bodyHtml = '';
 
         if (sub === 'tools') {
+          const sCfg = state.search || { provider: 'duckduckgo', apiKey: '', endpoint: '' };
           bodyHtml = `<div class="space-y-2.5">
-            <div class="flex items-center justify-between">
+            <div class="surface card-pad space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold">Live Web Search Engine (web_search)</span>
+                <span class="pill pill-accent text-[10px]">${escapeHtml(sCfg.provider || 'duckduckgo')}</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <select id="hub-search-provider" class="input-field text-xs">
+                  <option value="duckduckgo" ${sCfg.provider === 'duckduckgo' ? 'selected' : ''}>DuckDuckGo + Wikipedia (Free)</option>
+                  <option value="tavily" ${sCfg.provider === 'tavily' ? 'selected' : ''}>Tavily Search API</option>
+                  <option value="brave" ${sCfg.provider === 'brave' ? 'selected' : ''}>Brave Search API</option>
+                  <option value="searxng" ${sCfg.provider === 'searxng' ? 'selected' : ''}>SearXNG / Custom JSON</option>
+                </select>
+                <input id="hub-search-key" type="password" class="input-field text-xs font-mono-code" value="${escapeHtml(sCfg.apiKey || '')}" placeholder="API Key (if Tavily/Brave)" />
+                <input id="hub-search-endpoint" type="url" class="input-field text-xs font-mono-code" value="${escapeHtml(sCfg.endpoint || '')}" placeholder="Endpoint (if SearXNG/Custom)" />
+              </div>
+              <button id="btn-save-search-cfg" class="btn-ghost px-3 py-1.5 text-xs">Save Search Provider</button>
+            </div>
+
+            <div class="flex items-center justify-between pt-1">
               <p class="text-xs" style="color:var(--muted);">Built-in Hermes tools &amp; custom REST/Webhook tools</p>
               <button id="btn-add-tool" class="btn-primary px-3 py-1.5 text-xs">+ Add Tool</button>
             </div>
@@ -2066,14 +2014,17 @@ ${ratchetLines}`;
                   <p class="text-xs mt-1" style="color:var(--muted);">${escapeHtml(t.description)}</p>
                   <div class="text-[10px] font-mono-code mt-1 truncate" style="color:var(--muted);">${escapeHtml(t.method)} · ${escapeHtml(t.endpoint)}</div>
                 </div>
-                <div data-tool-toggle="${t.id}" class="toggle-track ${t.enabled ? 'on' : ''}" role="switch" aria-checked="${t.enabled}"><div class="toggle-thumb"></div></div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <button data-edit-tool="${t.id}" class="btn-ghost px-2 py-1 text-[11px]">Edit</button>
+                  <div data-tool-toggle="${t.id}" class="toggle-track ${t.enabled ? 'on' : ''}" role="switch" aria-checked="${t.enabled}"><div class="toggle-thumb"></div></div>
+                </div>
               </div>
             `).join('')}
           </div>`;
         } else if (sub === 'skills') {
           bodyHtml = `<div class="space-y-2.5">
             <div class="flex items-center justify-between">
-              <p class="text-xs" style="color:var(--muted);">Reusable SKILL.md playbooks loaded on demand</p>
+              <p class="text-xs" style="color:var(--muted);">Reusable SKILL.md playbooks loaded into system prompts</p>
               <button id="btn-add-skill" class="btn-primary px-3 py-1.5 text-xs">+ New SKILL.md</button>
             </div>
             ${state.skills.map(s => `
@@ -2086,7 +2037,10 @@ ${ratchetLines}`;
                     </div>
                     <p class="text-xs mt-1" style="color:var(--muted);">${escapeHtml(s.description)}</p>
                   </div>
-                  <div data-skill-toggle="${s.id}" class="toggle-track ${s.enabled ? 'on' : ''}" role="switch" aria-checked="${s.enabled}"><div class="toggle-thumb"></div></div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <button data-edit-skill="${s.id}" class="btn-ghost px-2 py-1 text-[11px]">Edit</button>
+                    <div data-skill-toggle="${s.id}" class="toggle-track ${s.enabled ? 'on' : ''}" role="switch" aria-checked="${s.enabled}"><div class="toggle-thumb"></div></div>
+                  </div>
                 </div>
                 <details>
                   <summary class="text-[11px] font-medium cursor-pointer" style="color:var(--accent);">View SKILL.md</summary>
@@ -2098,7 +2052,7 @@ ${ratchetLines}`;
         } else if (sub === 'mcp') {
           bodyHtml = `<div class="space-y-2.5">
             <div class="flex items-center justify-between">
-              <p class="text-xs" style="color:var(--muted);">Model Context Protocol servers &amp; Chrome extension bridge</p>
+              <p class="text-xs" style="color:var(--muted);">JSON-RPC 2.0 Streamable HTTP MCP servers</p>
               <button id="btn-add-mcp" class="btn-primary px-3 py-1.5 text-xs">+ Add MCP</button>
             </div>
             ${state.mcps.map(m => `
@@ -2112,7 +2066,10 @@ ${ratchetLines}`;
                     </div>
                     <div class="text-[11px] font-mono-code mt-1 truncate" style="color:var(--muted);">${escapeHtml(m.url)}</div>
                   </div>
-                  <button data-mcp-toggle="${m.id}" class="btn-ghost px-2.5 py-1 text-xs shrink-0">${m.status === 'connected' ? 'Disconnect' : 'Connect'}</button>
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <button data-edit-mcp="${m.id}" class="btn-ghost px-2 py-1 text-[11px]">Edit</button>
+                    <button data-mcp-toggle="${m.id}" class="btn-ghost px-2.5 py-1 text-xs">${m.status === 'connected' ? 'Disconnect' : 'Connect'}</button>
+                  </div>
                 </div>
                 <div class="flex flex-wrap gap-1">
                   ${m.tools.map(tn => `<span class="pill pill-muted font-mono-code text-[10px]">${escapeHtml(tn)}</span>`).join('')}
@@ -2123,22 +2080,26 @@ ${ratchetLines}`;
         } else if (sub === 'connectors') {
           bodyHtml = `<div class="space-y-2.5">
             <div class="flex items-center justify-between">
-              <p class="text-xs" style="color:var(--muted);">Hermes-style chat &amp; webhook connectors</p>
+              <p class="text-xs" style="color:var(--muted);">Configurable Telegram, Discord, Slack &amp; Webhook links</p>
               <button id="btn-add-connector" class="btn-primary px-3 py-1.5 text-xs">+ Add Connector</button>
             </div>
-            ${state.connectors.map(c => `
-              <div class="surface card-pad flex items-center justify-between gap-3">
+            ${state.connectors.map(c => {
+              const configured = Boolean((c.botToken && (c.chatId || c.handle)) || (c.webhookUrl && c.webhookUrl.startsWith('https://')));
+              return `<div class="surface card-pad flex items-center justify-between gap-3">
                 <div class="min-w-0">
                   <div class="flex items-center gap-1.5 flex-wrap">
                     <span class="font-semibold text-xs">${escapeHtml(c.name)}</span>
-                    <span class="pill pill-muted text-[10px]">${escapeHtml(c.mode)}</span>
+                    <span class="pill ${configured ? 'pill-success' : 'pill-muted'} text-[10px]">${configured ? 'Configured' : escapeHtml(c.mode)}</span>
                     ${c.requiresApproval ? '<span class="pill pill-warn text-[10px]">Gated</span>' : ''}
                   </div>
-                  <div class="text-[11px] mt-0.5 truncate" style="color:var(--muted);">${escapeHtml(c.type)} · ${escapeHtml(c.handle)}</div>
+                  <div class="text-[11px] mt-0.5 truncate" style="color:var(--muted);">${escapeHtml(c.type)} · ${escapeHtml(c.chatId || c.webhookUrl || c.handle)}</div>
                 </div>
-                <div data-conn-toggle="${c.id}" class="toggle-track ${c.enabled ? 'on' : ''}" role="switch" aria-checked="${c.enabled}"><div class="toggle-thumb"></div></div>
-              </div>
-            `).join('')}
+                <div class="flex items-center gap-2 shrink-0">
+                  <button data-edit-conn="${c.id}" class="btn-ghost px-2 py-1 text-[11px]">Configure</button>
+                  <div data-conn-toggle="${c.id}" class="toggle-track ${c.enabled ? 'on' : ''}" role="switch" aria-checked="${c.enabled}"><div class="toggle-thumb"></div></div>
+                </div>
+              </div>`;
+            }).join('')}
           </div>`;
         }
 
@@ -2236,6 +2197,48 @@ ${ratchetLines}`;
                 <button data-harness-policy="${p}" class="py-1.5 rounded-lg text-xs font-medium capitalize" style="${state.harness.defaultPolicy === p ? 'background:var(--accent); color:var(--accent-fg);' : 'background:var(--surface); border:1px solid var(--border); color:var(--text);'}">${p}</button>
               `).join('')}
             </div>
+
+            <!-- Configurable Engine & Context Budgets -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t" style="border-color:var(--border);">
+              <div>
+                <label class="text-[10.5px] font-semibold block mb-1">Max Steps</label>
+                <input id="hcfg-steps" type="number" min="2" max="40" class="input-field text-xs py-1.5" value="${state.harness.maxSteps || 12}" />
+              </div>
+              <div>
+                <label class="text-[10.5px] font-semibold block mb-1">Max Retries</label>
+                <input id="hcfg-retries" type="number" min="1" max="6" class="input-field text-xs py-1.5" value="${state.harness.maxRetries || 2}" />
+              </div>
+              <div>
+                <label class="text-[10.5px] font-semibold block mb-1">Context Turns</label>
+                <input id="hcfg-turns" type="number" min="2" max="30" class="input-field text-xs py-1.5" value="${state.harness.contextTurns || 12}" />
+              </div>
+              <div>
+                <label class="text-[10.5px] font-semibold block mb-1">Max Tokens</label>
+                <input id="hcfg-tokens" type="number" min="256" max="32768" step="256" class="input-field text-xs py-1.5" value="${state.harness.maxOutputTokens || 4096}" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label class="text-[10.5px] font-semibold block mb-1">Wiki Context Retrieval</label>
+                <select id="hcfg-wiki-mode" class="input-field text-xs py-1.5">
+                  <option value="smart" ${(state.harness.wikiRetrievalMode || 'smart') === 'smart' ? 'selected' : ''}>Smart Keyword Match</option>
+                  <option value="all" ${state.harness.wikiRetrievalMode === 'all' ? 'selected' : ''}>Include Top Pages</option>
+                  <option value="off" ${state.harness.wikiRetrievalMode === 'off' ? 'selected' : ''}>Off</option>
+                </select>
+              </div>
+              <div class="flex flex-col justify-end gap-1.5">
+                <label class="flex items-center justify-between text-xs cursor-pointer">
+                  <span>Live Tool Calling (ReAct)</span>
+                  <input id="hcfg-tools" type="checkbox" ${state.harness.enableToolCalling !== false ? 'checked' : ''} />
+                </label>
+                <label class="flex items-center justify-between text-xs cursor-pointer">
+                  <span>Web SSE Token Streaming</span>
+                  <input id="hcfg-stream" type="checkbox" ${state.harness.enableStreaming !== false ? 'checked' : ''} />
+                </label>
+              </div>
+            </div>
+            <button id="btn-save-harness-cfg" class="btn-primary w-full py-1.5 text-xs">Save Engine &amp; Harness Config</button>
           </div>
 
           <!-- Compiled AGENTS.md -->
@@ -2326,29 +2329,25 @@ ${ratchetLines}`;
           });
         });
 
-        document.getElementById('btn-run-all-tests').addEventListener('click', () => {
-          state.harness.testResults = {
-            test_boundary: {
-              pass: true,
-              badge: state.harness.globalApprovalGate ? 'PAUSED (GATED)' : 'ALLOWED (AUTOPILOT)',
-              detail: state.harness.globalApprovalGate
-                ? 'Blocked unapproved Telegram send cleanly and surfaced Approval Card.'
-                : 'Global Approval Gate is OFF — executed with audit log entry.'
-            },
-            test_verification: {
-              pass: true,
-              badge: 'PASSED',
-              detail: 'Caught [TBD] placeholder in output draft and rejected premature completion.'
-            },
-            test_recovery: {
-              pass: true,
-              badge: 'PASSED',
-              detail: `Halted after ${state.harness.maxRetries} consecutive tool errors and escalated exact trace.`
-            }
-          };
+        document.getElementById('btn-save-harness-cfg').addEventListener('click', () => {
+          state.harness.maxSteps = Math.max(2, parseInt(document.getElementById('hcfg-steps').value, 10) || 12);
+          state.harness.maxRetries = Math.max(1, parseInt(document.getElementById('hcfg-retries').value, 10) || 2);
+          state.harness.contextTurns = Math.max(2, parseInt(document.getElementById('hcfg-turns').value, 10) || 12);
+          state.harness.maxOutputTokens = Math.max(256, parseInt(document.getElementById('hcfg-tokens').value, 10) || 4096);
+          state.harness.wikiRetrievalMode = document.getElementById('hcfg-wiki-mode').value;
+          state.harness.enableToolCalling = document.getElementById('hcfg-tools').checked;
+          state.harness.enableStreaming = document.getElementById('hcfg-stream').checked;
           saveState();
           openHarnessSheet();
-          showToast('All 3 harness verification tests passed', 'success');
+          renderMain();
+          showToast('Engine & harness configuration saved', 'success');
+        });
+
+        document.getElementById('btn-run-all-tests').addEventListener('click', () => {
+          state.harness.testResults = window.KeryxEngine.runHarnessVerificationSuite(state);
+          saveState();
+          openHarnessSheet();
+          showToast('All 3 live harness verification checks passed', 'success');
         });
       }
 
@@ -2421,7 +2420,10 @@ ${ratchetLines}`;
                   <span class="text-xs font-semibold">${info.name}</span>
                   <span class="text-[10px]" style="color:var(--muted);">${allModels.length} model IDs</span>
                 </div>
-                <input data-provider-key="${key}" type="password" class="input-field font-mono-code text-xs" value="${escapeHtml(pCfg.apiKey || '')}" placeholder="API Key (${info.placeholder})" />
+                <div class="flex gap-1.5">
+                  <input data-provider-key="${key}" type="password" class="input-field font-mono-code text-xs flex-1" value="${escapeHtml(pCfg.apiKey || '')}" placeholder="API Key (${info.placeholder})" />
+                  <button type="button" data-toggle-secret="${key}" class="btn-ghost px-2.5 text-[11px] shrink-0" title="Show/Hide key">Show</button>
+                </div>
                 ${key === 'custom' ? `<input data-provider-url="${key}" type="url" class="input-field font-mono-code text-xs" value="${escapeHtml(pCfg.baseUrl || '')}" placeholder="HTTPS Base URL (e.g., https://integrate.api.nvidia.com/v1)" />
                 <div class="flex flex-wrap gap-1 items-center">
                   <span class="text-[10px]" style="color:var(--muted);">Presets:</span>
@@ -2450,10 +2452,37 @@ ${ratchetLines}`;
             <button id="btn-save-keys" class="btn-primary w-full py-2 text-xs">Save Provider Keys &amp; Endpoints</button>
           </div>
 
-          <!-- Export / Reset -->
-          <div class="flex items-center gap-2 pt-3 border-t" style="border-color:var(--border);">
-            <button id="btn-export-bundle" class="btn-ghost flex-1 py-2 text-xs">Copy Full JSON Backup</button>
-            <button id="btn-reset-demo" class="btn-ghost py-2 px-3 text-xs" style="color:var(--danger);">Reset Demo</button>
+          <!-- Security: Encrypted Key Vault (WebCrypto AES-GCM) -->
+          <div class="space-y-2 pt-3 border-t" style="border-color:var(--border);">
+            <div class="flex items-center justify-between">
+              <div class="text-xs font-bold uppercase tracking-wider" style="color:var(--muted);">Security &amp; Encrypted Vault</div>
+              <span class="pill ${state.vault?.encrypted ? (state.vault.locked ? 'pill-warn' : 'pill-success') : 'pill-muted'} text-[10px]">
+                ${state.vault?.encrypted ? (state.vault.locked ? 'Locked (AES-GCM)' : 'Unlocked (Encrypted)') : 'Unencrypted'}
+              </span>
+            </div>
+            <div class="flex gap-1.5">
+              <input id="vault-passphrase" type="password" class="input-field text-xs flex-1" placeholder="${state.vault?.locked ? 'Enter passphrase to unlock keys...' : 'Passphrase to encrypt API keys at rest...'}" />
+              ${state.vault?.locked
+                ? `<button type="button" id="btn-vault-unlock" class="btn-primary px-3 text-xs shrink-0">Unlock</button>`
+                : `<button type="button" id="btn-vault-lock" class="btn-ghost px-3 text-xs shrink-0">${state.vault?.encrypted ? 'Lock Now' : 'Encrypt & Lock'}</button>`}
+            </div>
+            ${state.vault?.encrypted && !state.vault?.locked ? `<button type="button" id="btn-vault-clear-enc" class="text-[11px] underline" style="color:var(--muted);">Remove passphrase encryption</button>` : ''}
+          </div>
+
+          <!-- Export / Import / Reset -->
+          <div class="space-y-2 pt-3 border-t" style="border-color:var(--border);">
+            <div class="text-xs font-bold uppercase tracking-wider" style="color:var(--muted);">Backup &amp; Workspace</div>
+            <div class="grid grid-cols-2 gap-2">
+              <button id="btn-export-bundle" class="btn-ghost py-2 text-xs">Copy JSON Backup</button>
+              <button id="btn-download-bundle" class="btn-ghost py-2 text-xs">Download .json</button>
+            </div>
+            <div class="flex items-center gap-2">
+              <label class="btn-ghost flex-1 py-2 text-xs text-center cursor-pointer">
+                <span>Import JSON Backup</span>
+                <input id="input-import-bundle" type="file" accept=".json,application/json" class="hidden" />
+              </label>
+              <button id="btn-reset-demo" class="btn-ghost py-2 px-3 text-xs" style="color:var(--danger);">Reset Demo</button>
+            </div>
           </div>
         `;
 
@@ -2543,15 +2572,107 @@ ${ratchetLines}`;
             }
           });
         });
+        document.querySelectorAll('[data-toggle-secret]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const inp = document.querySelector(`[data-provider-key="${btn.dataset.toggleSecret}"]`);
+            if (!inp) return;
+            const show = inp.type === 'password';
+            inp.type = show ? 'text' : 'password';
+            btn.textContent = show ? 'Hide' : 'Show';
+          });
+        });
+
+        const btnLock = document.getElementById('btn-vault-lock');
+        if (btnLock) {
+          btnLock.addEventListener('click', async () => {
+            const pass = document.getElementById('vault-passphrase').value;
+            if (!pass || pass.length < 4) { showToast('Enter a passphrase (4+ chars)', 'warn'); return; }
+            try {
+              const secrets = {
+                providers: Object.fromEntries(Object.entries(state.providers).map(([k, v]) => [k, v.apiKey || ''])),
+                searchKey: state.search?.apiKey || '',
+                connectors: (state.connectors || []).map(c => ({ id: c.id, botToken: c.botToken || '', webhookUrl: c.webhookUrl || '' }))
+              };
+              const enc = await window.KeryxStorage.encryptVaultSecrets(secrets, pass);
+              Object.values(state.providers).forEach(v => { v.apiKey = ''; });
+              if (state.search) state.search.apiKey = '';
+              (state.connectors || []).forEach(c => { c.botToken = ''; c.webhookUrl = ''; });
+              state.vault = { encrypted: true, locked: true, encryptedPayload: enc };
+              saveState(); applyTheme(); renderMain(); openSettingsSheet();
+              showToast('Vault encrypted & locked (AES-GCM)', 'success');
+            } catch (e) {
+              showToast('Encryption failed: ' + e.message, 'danger');
+            }
+          });
+        }
+
+        const btnUnlock = document.getElementById('btn-vault-unlock');
+        if (btnUnlock) {
+          btnUnlock.addEventListener('click', async () => {
+            const pass = document.getElementById('vault-passphrase').value;
+            if (!pass) { showToast('Enter your passphrase', 'warn'); return; }
+            try {
+              const secrets = await window.KeryxStorage.decryptVaultSecrets(state.vault.encryptedPayload, pass);
+              Object.entries(secrets.providers || {}).forEach(([k, val]) => {
+                if (state.providers[k]) state.providers[k].apiKey = val;
+              });
+              if (state.search && secrets.searchKey) state.search.apiKey = secrets.searchKey;
+              (secrets.connectors || []).forEach(sc => {
+                const c = (state.connectors || []).find(x => x.id === sc.id);
+                if (c) { c.botToken = sc.botToken || ''; c.webhookUrl = sc.webhookUrl || ''; }
+              });
+              state.vault.locked = false;
+              saveState(); applyTheme(); renderMain(); openSettingsSheet();
+              showToast('Vault unlocked', 'success');
+            } catch (e) {
+              showToast('Wrong passphrase or corrupted vault', 'danger');
+            }
+          });
+        }
+
+        const btnClearEnc = document.getElementById('btn-vault-clear-enc');
+        if (btnClearEnc) {
+          btnClearEnc.addEventListener('click', () => {
+            state.vault = { encrypted: false, locked: false, encryptedPayload: null };
+            saveState(); applyTheme(); openSettingsSheet();
+            showToast('Vault encryption removed');
+          });
+        }
+
         document.getElementById('btn-export-bundle').addEventListener('click', () => {
-          const safe = JSON.parse(JSON.stringify(state));
-          Object.values(safe.providers).forEach(p => { if (p.apiKey) p.apiKey = '***REDACTED***'; });
-          copyText(JSON.stringify(safe, null, 2), 'Config & Wiki JSON');
+          copyText(window.KeryxStorage.exportBackupJson(state, false), 'Config & Wiki JSON');
+        });
+        document.getElementById('btn-download-bundle').addEventListener('click', () => {
+          downloadMarkdownFile('keryx-backup.json', window.KeryxStorage.exportBackupJson(state, false));
+        });
+        document.getElementById('input-import-bundle').addEventListener('change', async (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          try {
+            const txt = await file.text();
+            const imported = window.KeryxStorage.parseBackupJson(txt);
+            state = ensureStateDefaults(imported);
+            saveState(); applyTheme(); closeSheet(); renderMain(); updateBadges();
+            showToast('Backup restored successfully', 'success');
+          } catch (err) {
+            showToast('Import failed: ' + err.message, 'danger');
+          }
         });
         document.getElementById('btn-reset-demo').addEventListener('click', () => {
-          state = createDefaultState();
-          saveState(); applyTheme(); closeSheet(); renderMain(); updateBadges();
-          showToast('Workspace reset to default', 'success');
+          openSheet('Confirm Workspace Reset', 'This will erase all saved API keys, custom agents, chats & wiki notes', `
+            <div class="space-y-3">
+              <p class="text-xs" style="color:var(--muted);">Are you sure you want to reset Keryx back to default demo state?</p>
+              <div class="flex gap-2">
+                <button type="button" id="btn-confirm-reset-cancel" class="btn-ghost flex-1 py-2 text-xs">Cancel</button>
+                <button type="button" id="btn-confirm-reset-yes" class="btn-primary flex-1 py-2 text-xs" style="background:var(--danger);">Yes, Reset Everything</button>
+              </div>
+            </div>`);
+          document.getElementById('btn-confirm-reset-cancel').addEventListener('click', openSettingsSheet);
+          document.getElementById('btn-confirm-reset-yes').addEventListener('click', () => {
+            state = createDefaultState();
+            saveState(); applyTheme(); closeSheet(); renderMain(); updateBadges();
+            showToast('Workspace reset to default', 'success');
+          });
         });
       }
 
@@ -3029,14 +3150,20 @@ ${ratchetLines}`;
         document.getElementById('btn-run-ingest').addEventListener('click', () => {
           const title = document.getElementById('wi-title').value.trim();
           if (!title) { showToast('Enter a page title', 'danger'); return; }
+          const category = document.getElementById('wi-cat').value || 'sources';
+          const rawSource = document.getElementById('wi-raw').value.trim();
           enqueueBackgroundTask({
             title: `Ingest "${title}" into LLM Wiki`,
             agentId: 'agent_librarian',
             schedule: 'One-off',
             requiresExternalSend: false,
-            wikiWriteTitle: title
+            wikiWriteTitle: title,
+            wikiCategory: category,
+            rawSource
           });
+          state.ui.tab = 'tasks';
           closeSheet();
+          renderMain();
         });
       }
 
@@ -3136,11 +3263,226 @@ ${ratchetLines}`;
         }
       }
 
+      // MULTI-AGENT FLOW RUNNER SHEET
+      function openFlowRunnerSheet(defaultPrompt) {
+        const flowOpts = (state.flows || []).map(f => `<option value="${f.id}">${escapeHtml(f.name)} (${f.agentIds.length} agents)</option>`).join('');
+        openSheet('Run Multi-Agent Flow', 'Chain specialized agents sequentially with shared context & verification', `
+          <div class="space-y-3">
+            <div>
+              <label class="text-[11px] font-semibold block mb-1">Select Workflow</label>
+              <select id="flow-select" class="input-field">${flowOpts}</select>
+            </div>
+            <div>
+              <label class="text-[11px] font-semibold block mb-1">Flow Objective</label>
+              <textarea id="flow-prompt" rows="3" class="input-field" placeholder="Describe the multi-step goal...">${escapeHtml(defaultPrompt || '')}</textarea>
+            </div>
+            <div>
+              <label class="text-[11px] font-semibold block mb-1">Save Final Output to LLM Wiki Page (Optional)</label>
+              <input id="flow-wiki" class="input-field" placeholder="e.g., Agent Flow Synthesis" />
+            </div>
+            <label class="surface-subtle p-2.5 flex items-center justify-between text-xs cursor-pointer">
+              <span>Dispatch final result via enabled Connector (Approval Gated)</span>
+              <input id="flow-ext" type="checkbox" />
+            </label>
+            <button id="btn-start-flow" class="btn-primary w-full py-2 text-xs">Launch Multi-Agent Flow</button>
+          </div>`);
+        document.getElementById('btn-start-flow').addEventListener('click', () => {
+          const title = document.getElementById('flow-prompt').value.trim();
+          if (!title) { showToast('Enter a flow objective', 'warn'); return; }
+          const flow = (state.flows || []).find(f => f.id === document.getElementById('flow-select').value) || state.flows[0];
+          enqueueBackgroundTask({
+            title: `[Flow: ${flow.name}] ${title}`,
+            agentId: flow.agentIds[0],
+            schedule: 'Flow',
+            requiresExternalSend: document.getElementById('flow-ext').checked,
+            wikiWriteTitle: document.getElementById('flow-wiki').value.trim() || null,
+            flowAgentIds: flow.agentIds
+          });
+          state.ui.tab = 'tasks';
+          closeSheet();
+          renderMain();
+        });
+      }
+
+      // CRON JOB EDITOR SHEET
+      function openCronEditorSheet(cronId) {
+        const isNew = !cronId;
+        const c = isNew ? {
+          id: uid('cron'), name: '', schedule: 'Every 6h', agentId: state.agents[0].id,
+          enabled: true, lastRun: 'Never', lastRunTs: 0, prompt: ''
+        } : JSON.parse(JSON.stringify(state.cronJobs.find(x => x.id === cronId)));
+        const opts = state.agents.map(a => `<option value="${a.id}" ${a.id === c.agentId ? 'selected' : ''}>${a.emoji} ${escapeHtml(a.name)}</option>`).join('');
+        openSheet(isNew ? 'New Scheduled Cron Job' : `Edit ${c.name}`, 'Supports "Every 15m", "Every 6h", "Daily · 08:00", or 5-field cron', `
+          <div class="space-y-3">
+            <input id="cr-name" class="input-field" value="${escapeHtml(c.name)}" placeholder="Job name (e.g., Hourly GitHub Sweep)" />
+            <div class="grid grid-cols-2 gap-2">
+              <input id="cr-sched" class="input-field font-mono-code text-xs" value="${escapeHtml(c.schedule)}" placeholder="Every 6h or Daily · 08:00" />
+              <select id="cr-agent" class="input-field">${opts}</select>
+            </div>
+            <textarea id="cr-prompt" rows="3" class="input-field text-xs" placeholder="Prompt executed when schedule triggers...">${escapeHtml(c.prompt || '')}</textarea>
+            <div class="flex items-center justify-between gap-2">
+              ${!isNew ? `<button type="button" id="btn-del-cron" class="btn-ghost px-3 py-2 text-xs" style="color:var(--danger);">Delete</button>` : '<div></div>'}
+              <button type="button" id="btn-save-cron" class="btn-primary px-4 py-2 text-xs">Save Cron Job</button>
+            </div>
+          </div>`);
+        document.getElementById('btn-save-cron').addEventListener('click', () => {
+          const name = document.getElementById('cr-name').value.trim();
+          if (!name) { showToast('Enter a cron name', 'warn'); return; }
+          c.name = name;
+          c.schedule = document.getElementById('cr-sched').value.trim() || 'Every 6h';
+          c.agentId = document.getElementById('cr-agent').value;
+          c.prompt = document.getElementById('cr-prompt').value.trim();
+          if (isNew) state.cronJobs.unshift(c);
+          else {
+            const idx = state.cronJobs.findIndex(x => x.id === c.id);
+            if (idx >= 0) state.cronJobs[idx] = c;
+          }
+          saveState(); closeSheet(); renderMain(); showToast('Cron job saved', 'success');
+        });
+        const delCron = document.getElementById('btn-del-cron');
+        if (delCron) delCron.addEventListener('click', () => {
+          state.cronJobs = state.cronJobs.filter(x => x.id !== c.id);
+          saveState(); closeSheet(); renderMain(); showToast('Cron deleted');
+        });
+      }
+
+      // HUB ITEM EDITOR SHEET (Tool / Skill / MCP / Connector)
+      function openHubEditSheet(kind, id) {
+        if (kind === 'tool') {
+          const t = state.tools.find(x => x.id === id);
+          if (!t) return;
+          openSheet(`Configure Tool: ${t.name}`, 'Edit HTTP method, endpoint & approval boundary', `
+            <div class="space-y-3">
+              <input id="et-desc" class="input-field text-xs" value="${escapeHtml(t.description)}" placeholder="Description" />
+              <div class="grid grid-cols-3 gap-2">
+                <select id="et-method" class="input-field"><option ${t.method === 'GET' ? 'selected' : ''}>GET</option><option ${t.method === 'POST' ? 'selected' : ''}>POST</option><option ${t.method === 'DELETE' ? 'selected' : ''}>DELETE</option><option ${t.method === 'URI' ? 'selected' : ''}>URI</option></select>
+                <input id="et-url" class="input-field col-span-2 font-mono-code text-xs" value="${escapeHtml(t.endpoint)}" />
+              </div>
+              <label class="surface-subtle p-2.5 flex items-center justify-between text-xs cursor-pointer">
+                <span>Destructive / External Send (Approval Gated)</span>
+                <input id="et-dest" type="checkbox" ${t.destructive ? 'checked' : ''} />
+              </label>
+              <button id="btn-save-edit-hub" class="btn-primary w-full py-2 text-xs">Save Tool</button>
+            </div>`);
+          document.getElementById('btn-save-edit-hub').addEventListener('click', () => {
+            t.description = document.getElementById('et-desc').value.trim() || t.description;
+            t.method = document.getElementById('et-method').value;
+            t.endpoint = document.getElementById('et-url').value.trim() || t.endpoint;
+            t.destructive = document.getElementById('et-dest').checked;
+            saveState(); closeSheet(); renderMain(); showToast(`Updated ${t.name}`, 'success');
+          });
+        } else if (kind === 'skill') {
+          const s = state.skills.find(x => x.id === id);
+          if (!s) return;
+          openSheet(`Edit SKILL.md: ${s.name}`, 'Modify skill instructions loaded into agent prompts', `
+            <div class="space-y-3">
+              <input id="es-desc" class="input-field text-xs" value="${escapeHtml(s.description)}" />
+              <textarea id="es-body" rows="8" class="input-field font-mono-code text-xs">${escapeHtml(s.content)}</textarea>
+              <button id="btn-save-edit-hub" class="btn-primary w-full py-2 text-xs">Save SKILL.md</button>
+            </div>`);
+          document.getElementById('btn-save-edit-hub').addEventListener('click', () => {
+            s.description = document.getElementById('es-desc').value.trim() || s.description;
+            s.content = document.getElementById('es-body').value;
+            saveState(); closeSheet(); renderMain(); showToast(`Saved ${s.name}`, 'success');
+          });
+        } else if (kind === 'mcp') {
+          const m = state.mcps.find(x => x.id === id);
+          if (!m) return;
+          openSheet(`Configure MCP: ${m.name}`, 'Streamable HTTP JSON-RPC 2.0 endpoint & tool discovery', `
+            <div class="space-y-3">
+              <input id="em-url" class="input-field font-mono-code text-xs" value="${escapeHtml(m.url)}" placeholder="https://mcp.example.com/mcp" />
+              <input id="em-token" type="password" class="input-field font-mono-code text-xs" value="${escapeHtml(m.authToken || '')}" placeholder="Optional Bearer Token" />
+              <input id="em-tools" class="input-field font-mono-code text-xs" value="${escapeHtml((m.tools || []).join(', '))}" placeholder="Comma-separated tool names" />
+              <div class="flex gap-2">
+                <button type="button" id="btn-test-mcp" class="btn-ghost flex-1 py-2 text-xs">Discover Tools</button>
+                <button type="button" id="btn-save-edit-hub" class="btn-primary flex-1 py-2 text-xs">Save MCP</button>
+              </div>
+            </div>`);
+          document.getElementById('btn-save-edit-hub').addEventListener('click', () => {
+            m.url = document.getElementById('em-url').value.trim() || m.url;
+            m.authToken = document.getElementById('em-token').value.trim();
+            m.tools = document.getElementById('em-tools').value.split(',').map(x => x.trim()).filter(Boolean);
+            saveState(); closeSheet(); renderMain(); showToast(`Saved ${m.name}`, 'success');
+          });
+          document.getElementById('btn-test-mcp').addEventListener('click', async () => {
+            m.url = document.getElementById('em-url').value.trim() || m.url;
+            m.authToken = document.getElementById('em-token').value.trim();
+            try {
+              const tools = await window.KeryxEngine.connectMcpServer(m);
+              saveState(); openHubEditSheet('mcp', m.id); renderMain();
+              showToast(`Discovered ${tools.length} tools from ${m.name}`, 'success');
+            } catch (err) {
+              showToast(`MCP failed: ${err.message}`, 'danger');
+            }
+          });
+        } else if (kind === 'connector') {
+          const c = state.connectors.find(x => x.id === id);
+          if (!c) return;
+          const isTg = c.name.toLowerCase().includes('telegram');
+          openSheet(`Configure ${c.name}`, 'Real outbound delivery credentials & Approval Gate', `
+            <div class="space-y-3">
+              ${isTg ? `
+                <div>
+                  <label class="text-[11px] font-semibold block mb-1">Telegram Bot Token</label>
+                  <input id="ec-token" type="password" class="input-field font-mono-code text-xs" value="${escapeHtml(c.botToken || '')}" placeholder="123456:ABC-DEF..." />
+                </div>
+                <div>
+                  <label class="text-[11px] font-semibold block mb-1">Target Chat ID</label>
+                  <input id="ec-chatid" class="input-field font-mono-code text-xs" value="${escapeHtml(c.chatId || '')}" placeholder="e.g., 987654321 or @channel" />
+                </div>
+              ` : `
+                <div>
+                  <label class="text-[11px] font-semibold block mb-1">Webhook HTTPS URL</label>
+                  <input id="ec-webhook" type="url" class="input-field font-mono-code text-xs" value="${escapeHtml(c.webhookUrl || '')}" placeholder="https://hooks.slack.com/services/... or https://discord.com/api/webhooks/..." />
+                </div>
+                <div>
+                  <label class="text-[11px] font-semibold block mb-1">Optional Authorization Header</label>
+                  <input id="ec-auth" type="password" class="input-field font-mono-code text-xs" value="${escapeHtml(c.authHeader || '')}" placeholder="Bearer ..." />
+                </div>
+              `}
+              <label class="surface-subtle p-2.5 flex items-center justify-between text-xs cursor-pointer">
+                <span>Require Approval Gate before sending</span>
+                <input id="ec-gate" type="checkbox" ${c.requiresApproval ? 'checked' : ''} />
+              </label>
+              <div class="flex gap-2">
+                <button type="button" id="btn-test-conn" class="btn-ghost flex-1 py-2 text-xs">Test Send</button>
+                <button type="button" id="btn-save-edit-hub" class="btn-primary flex-1 py-2 text-xs">Save Connector</button>
+              </div>
+            </div>`);
+          const readFields = () => {
+            if (isTg) {
+              c.botToken = document.getElementById('ec-token').value.trim();
+              c.chatId = document.getElementById('ec-chatid').value.trim();
+              if (c.chatId) c.handle = c.chatId;
+            } else {
+              c.webhookUrl = document.getElementById('ec-webhook').value.trim();
+              c.authHeader = document.getElementById('ec-auth').value.trim();
+              if (c.webhookUrl) c.handle = c.webhookUrl;
+            }
+            c.requiresApproval = document.getElementById('ec-gate').checked;
+          };
+          document.getElementById('btn-save-edit-hub').addEventListener('click', () => {
+            readFields();
+            saveState(); closeSheet(); renderMain(); showToast(`Saved ${c.name}`, 'success');
+          });
+          document.getElementById('btn-test-conn').addEventListener('click', async () => {
+            readFields();
+            saveState();
+            try {
+              const res = await window.KeryxEngine.dispatchConnector(c, 'Test ping from Keryx Mobile Platform ✅', 'Keryx Connector Test');
+              showToast(res.detail, 'success');
+            } catch (err) {
+              showToast(err.message, 'danger');
+            }
+          });
+        }
+      }
+
       // ============================
       // VIEW EVENT LISTENERS
       // ============================
       function attachViewListeners() {
-        // Wikilink clicks anywhere
+        // Wikilinks, external markdown links, and code copy buttons anywhere
         document.querySelectorAll('[data-wikilink]').forEach(btn => {
           btn.addEventListener('click', () => {
             const targetTitle = btn.dataset.wikilink.toLowerCase();
@@ -3158,12 +3500,19 @@ ${ratchetLines}`;
               saveState();
               showToast(`Created wiki page [[${page.title}]]`);
             }
+            state.ui.wikiViewMode = 'wiki';
             state.ui.activeWikiId = page.id;
             state.ui.tab = 'wiki';
             state.ui.wikiEditMode = false;
             saveState();
             renderMain();
           });
+        });
+        document.querySelectorAll('[data-ext-url]').forEach(btn => {
+          btn.addEventListener('click', () => openExternalUrl(btn.dataset.extUrl));
+        });
+        document.querySelectorAll('[data-copy-code]').forEach(btn => {
+          btn.addEventListener('click', () => copyText(btn.dataset.copyCode, 'Code'));
         });
 
         // Chat listeners
@@ -3181,13 +3530,38 @@ ${ratchetLines}`;
         document.querySelectorAll('[data-fix-provider]').forEach(b => {
           b.addEventListener('click', () => openSettingsSheet(b.dataset.fixProvider));
         });
+        document.querySelectorAll('[data-copy-reply]').forEach(b => {
+          b.addEventListener('click', () => {
+            const agent = getAgent(state.ui.activeAgentId);
+            const m = (state.chats[agent.id] || []).find(x => x.id === b.dataset.copyReply);
+            if (m) copyText(m.text, 'Reply');
+          });
+        });
+        document.querySelectorAll('[data-save-skill]').forEach(b => {
+          b.addEventListener('click', () => {
+            const agent = getAgent(state.ui.activeAgentId);
+            const m = (state.chats[agent.id] || []).find(x => x.id === b.dataset.saveSkill);
+            if (!m) return;
+            const slug = 'learned-' + uid('sk').slice(3);
+            state.skills.unshift({
+              id: uid('skill'),
+              name: slug,
+              description: `Distilled from ${agent.name} reply`,
+              enabled: true,
+              content: `---\nname: ${slug}\ndescription: Learned workflow from ${agent.name}\n---\n${m.text.slice(0, 1200)}`
+            });
+            saveState();
+            showToast(`Saved ${slug} to Skills`, 'success');
+          });
+        });
 
         const sendBtn = document.getElementById('btn-chat-send');
         const bgBtn = document.getElementById('btn-chat-bg');
+        const flowBtn = document.getElementById('btn-chat-flow');
         const clearBtn = document.getElementById('btn-chat-clear');
         const chatInput = document.getElementById('chat-input');
 
-        function renderWorkingCard(agentName, activeIdx, activeDetail) {
+        function renderWorkingCard(agentName, activeIdx, activeDetail, streamPreview) {
           const steps = [
             { label: 'Orient', fallback: 'Read AGENTS.md & [[Wiki Index]]' },
             { label: 'Skills', fallback: 'Load skills & tools' },
@@ -3209,6 +3583,9 @@ ${ratchetLines}`;
               <span class="truncate" style="color:var(--muted);">${escapeHtml(detailText)}</span>
             </div>`;
           }).join('');
+          const previewHtml = streamPreview
+            ? `<div class="p-2.5 rounded-xl text-xs prose-sm border" style="background:var(--bg); border-color:var(--border);">${renderMarkdownWithWikiLinks(streamPreview)}</div>`
+            : '';
           return `<div class="max-w-[92%] surface card-pad space-y-2.5" style="border-color: var(--accent);">
             <div class="flex items-center justify-between gap-2">
               <div class="flex items-center gap-2.5 min-w-0">
@@ -3221,6 +3598,7 @@ ${ratchetLines}`;
               <span class="pill pill-accent text-[10px] shrink-0">Running</span>
             </div>
             <div class="surface-subtle p-2.5 space-y-1.5">${rows}</div>
+            ${previewHtml}
           </div>`;
         }
 
@@ -3246,25 +3624,39 @@ ${ratchetLines}`;
 
             const listEl = document.getElementById('chat-messages-list');
             let workingCard = null;
+            let lastStepIdx = 0;
+            let lastDetail = 'Reading AGENTS.md & Wiki Index';
             if (listEl) {
               workingCard = document.createElement('div');
               workingCard.id = 'chat-working-card';
               workingCard.className = 'flex justify-start';
-              workingCard.innerHTML = renderWorkingCard(agent.name, 0, 'Reading AGENTS.md & Wiki Index');
+              workingCard.innerHTML = renderWorkingCard(agent.name, 0, lastDetail, '');
               listEl.appendChild(workingCard);
               scrollChatToBottom(true);
             }
 
             try {
-              const resp = await runAgentChatTurn(agent, text, (stepIdx, detail) => {
-                if (workingCard) {
-                  workingCard.innerHTML = renderWorkingCard(agent.name, stepIdx, detail);
-                  scrollChatToBottom(true);
+              const resp = await runAgentChatTurn(
+                agent,
+                text,
+                (stepIdx, detail) => {
+                  lastStepIdx = stepIdx;
+                  lastDetail = detail;
+                  if (workingCard) {
+                    workingCard.innerHTML = renderWorkingCard(agent.name, stepIdx, detail, '');
+                    scrollChatToBottom(true);
+                  }
+                },
+                (streamedText) => {
+                  if (workingCard) {
+                    workingCard.innerHTML = renderWorkingCard(agent.name, lastStepIdx, lastDetail, streamedText);
+                    scrollChatToBottom(true);
+                  }
                 }
-              });
+              );
               if (workingCard) {
-                workingCard.innerHTML = renderWorkingCard(agent.name, 4, '');
-                await new Promise(r => setTimeout(r, 220));
+                workingCard.innerHTML = renderWorkingCard(agent.name, 4, '', '');
+                await new Promise(r => setTimeout(r, 200));
               }
               state.chats[agent.id].push({
                 id: uid('msg'),
@@ -3303,21 +3695,54 @@ ${ratchetLines}`;
             saveState(); renderMain();
           });
         }
+        if (flowBtn && chatInput) {
+          flowBtn.addEventListener('click', () => openFlowRunnerSheet(chatInput.value.trim()));
+        }
         if (clearBtn) {
           clearBtn.addEventListener('click', () => {
-            const agent = getAgent(state.ui.activeAgentId);
-            state.chats[agent.id] = [{ id: uid('msg'), role: 'assistant', time: nowTime(), text: `Thread cleared. **${agent.name}** ready.`, trace: [] }];
-            saveState(); renderMain();
+            openSheet('Clear Chat Thread', 'Remove messages in this conversation', `
+              <div class="space-y-3">
+                <p class="text-xs" style="color:var(--muted);">Clear all messages for the active agent thread?</p>
+                <div class="flex gap-2">
+                  <button type="button" id="btn-cancel-clear" class="btn-ghost flex-1 py-2 text-xs">Cancel</button>
+                  <button type="button" id="btn-confirm-clear" class="btn-primary flex-1 py-2 text-xs" style="background:var(--danger);">Clear Thread</button>
+                </div>
+              </div>`);
+            document.getElementById('btn-cancel-clear').addEventListener('click', closeSheet);
+            document.getElementById('btn-confirm-clear').addEventListener('click', () => {
+              const agent = getAgent(state.ui.activeAgentId);
+              state.chats[agent.id] = [{ id: uid('msg'), role: 'assistant', time: nowTime(), text: `Thread cleared. **${agent.name}** ready.`, trace: [] }];
+              saveState(); closeSheet(); renderMain();
+            });
           });
         }
-        document.querySelectorAll('[data-chat-approve]').forEach(b => b.addEventListener('click', () => {
+        document.querySelectorAll('[data-chat-approve]').forEach(b => b.addEventListener('click', async () => {
           const agent = getAgent(state.ui.activeAgentId);
           const msg = (state.chats[agent.id] || []).find(m => m.id === b.dataset.chatApprove);
-          if (msg && msg.pendingApproval) {
-            msg.pendingApproval.status = 'approved';
-            msg.trace.push({ step: 'Connector', detail: 'Human approved — payload dispatched.', status: 'ok' });
-            saveState(); renderMain(); showToast('Approved & dispatched', 'success');
+          if (!msg || !msg.pendingApproval) return;
+          const appr = msg.pendingApproval;
+          appr.status = 'approved';
+          try {
+            if (appr.kind === 'tool' && appr.toolName) {
+              const def = window.KeryxEngine.buildToolDefinitions(agent, state).find(d => d.name === appr.toolName);
+              if (def) {
+                const res = await window.KeryxEngine.executeToolCall(def, appr.args || {}, { agent, state, bypassApproval: true, compileAgentsMdFn: compileAgentsMd });
+                msg.trace.push({ step: 'Executed', detail: `${appr.toolName}: ${JSON.stringify(res).slice(0, 120)}`, status: 'ok' });
+                showToast(`Executed ${appr.toolName}`, 'success');
+              }
+            } else {
+              const conn = state.connectors.find(c => c.id === appr.connectorId) || state.connectors.find(c => c.enabled);
+              if (conn) {
+                const res = await window.KeryxEngine.dispatchConnector(conn, appr.message || appr.summary, appr.title || agent.name);
+                msg.trace.push({ step: 'Connector', detail: res.detail, status: 'ok' });
+                showToast(res.detail, 'success');
+              }
+            }
+          } catch (err) {
+            msg.trace.push({ step: 'Connector', detail: err.message, status: 'danger' });
+            showToast(err.message, 'danger');
           }
+          saveState(); renderMain();
         }));
         document.querySelectorAll('[data-chat-reject]').forEach(b => b.addEventListener('click', () => {
           const agent = getAgent(state.ui.activeAgentId);
@@ -3332,6 +3757,9 @@ ${ratchetLines}`;
         // Tasks listeners
         const btnNewTask = document.getElementById('btn-new-task');
         if (btnNewTask) btnNewTask.addEventListener('click', () => openNewTaskSheet(state.ui.activeAgentId));
+        const btnNewCron = document.getElementById('btn-new-cron');
+        if (btnNewCron) btnNewCron.addEventListener('click', () => openCronEditorSheet(null));
+        document.querySelectorAll('[data-edit-cron]').forEach(b => b.addEventListener('click', () => openCronEditorSheet(b.dataset.editCron)));
 
         const tGate = document.getElementById('tasks-approval-toggle');
         if (tGate) tGate.addEventListener('click', () => {
@@ -3348,11 +3776,12 @@ ${ratchetLines}`;
           if (t) {
             t._approvedOnce = true;
             t.status = 'running';
-            t.pendingAction = null;
             const w = t.todos.find(td => td.status === 'waiting');
             if (w) w.status = 'active';
-            t.logs.push({ time: nowTime(), type: 'gate', text: 'APPROVED by user — resuming background loop.' });
-            saveState(); updateBadges(); renderMain(); showToast('Approved — task resumed', 'success');
+            t.logs.push({ time: nowTime(), type: 'gate', text: 'APPROVED by user — executing & resuming.' });
+            saveState(); updateBadges(); renderMain();
+            runBackgroundTaskAsync(t);
+            showToast('Approved — task resumed', 'success');
           }
         }));
         document.querySelectorAll('[data-task-reject]').forEach(b => b.addEventListener('click', () => {
@@ -3370,12 +3799,12 @@ ${ratchetLines}`;
         }));
         document.querySelectorAll('[data-task-resume]').forEach(b => b.addEventListener('click', () => {
           const t = state.tasks.find(x => x.id === b.dataset.taskResume);
-          if (t) { t.status = 'running'; saveState(); updateBadges(); renderMain(); }
+          if (t) { t.status = 'running'; saveState(); updateBadges(); renderMain(); runBackgroundTaskAsync(t); }
         }));
         document.querySelectorAll('[data-task-rerun]').forEach(b => b.addEventListener('click', () => {
           const t = state.tasks.find(x => x.id === b.dataset.taskRerun);
           if (t) {
-            enqueueBackgroundTask({ title: t.title, agentId: t.agentId, schedule: t.schedule, requiresExternalSend: t.requiresExternalSend, wikiWriteTitle: t.wikiWriteTitle });
+            enqueueBackgroundTask({ title: t.title, agentId: t.agentId, schedule: t.schedule, requiresExternalSend: t.requiresExternalSend, wikiWriteTitle: t.wikiWriteTitle, wikiCategory: t.wikiCategory, rawSource: t.rawSource, flowAgentIds: t.flowAgentIds });
           }
         }));
         document.querySelectorAll('[data-task-delete]').forEach(b => b.addEventListener('click', () => {
@@ -3389,8 +3818,9 @@ ${ratchetLines}`;
         document.querySelectorAll('[data-cron-run]').forEach(b => b.addEventListener('click', () => {
           const c = state.cronJobs.find(x => x.id === b.dataset.cronRun);
           if (c) {
+            c.lastRunTs = Date.now();
             c.lastRun = 'Today ' + nowTime();
-            enqueueBackgroundTask({ title: c.name, agentId: c.agentId, schedule: c.schedule, requiresExternalSend: c.agentId === 'agent_ops' });
+            enqueueBackgroundTask({ title: `${c.name}: ${c.prompt || 'Scheduled run'}`, agentId: c.agentId, schedule: c.schedule, requiresExternalSend: c.agentId === 'agent_ops' });
           }
         }));
 
@@ -3405,7 +3835,26 @@ ${ratchetLines}`;
         }));
         document.querySelectorAll('[data-dispatch-agent]').forEach(b => b.addEventListener('click', () => openNewTaskSheet(b.dataset.dispatchAgent)));
 
-        // Wiki listeners
+        // Wiki & Memory listeners
+        document.querySelectorAll('[data-wiki-view-mode]').forEach(b => b.addEventListener('click', () => {
+          state.ui.wikiViewMode = b.dataset.wikiViewMode; saveState(); renderMain();
+        }));
+        const btnAddMem = document.getElementById('btn-add-memory');
+        if (btnAddMem) {
+          btnAddMem.addEventListener('click', () => {
+            const key = document.getElementById('mem-new-key').value.trim();
+            const value = document.getElementById('mem-new-val').value.trim();
+            if (!key || !value) { showToast('Enter both key and value', 'warn'); return; }
+            if (!Array.isArray(state.memory)) state.memory = [];
+            state.memory.unshift({ id: uid('mem'), key, value, updatedAt: 'Today, ' + nowTime() });
+            saveState(); renderMain(); showToast('Saved memory entry', 'success');
+          });
+        }
+        document.querySelectorAll('[data-del-memory]').forEach(b => b.addEventListener('click', () => {
+          state.memory = (state.memory || []).filter(m => m.id !== b.dataset.delMemory);
+          saveState(); renderMain();
+        }));
+
         const ws = document.getElementById('wiki-search-input');
         if (ws) ws.addEventListener('input', e => {
           const pos = e.target.selectionStart;
@@ -3443,17 +3892,22 @@ ${ratchetLines}`;
         const bObsBar = document.getElementById('btn-obsidian-bar-open');
         if (bObsBar) bObsBar.addEventListener('click', openObsidianVaultSheet);
         const bPushObs = document.getElementById('btn-wiki-push-obsidian');
-        if (bPushObs) bPushObs.addEventListener('click', () => {
+        if (bPushObs) bPushObs.addEventListener('click', async () => {
           const page = state.wiki.find(p => p.id === state.ui.activeWikiId);
           if (!page) return;
           if (state.obsidian.syncMode === 'read-only') {
             showToast('Vault is in Read-Only mode — change in Obsidian settings', 'warn');
             return;
           }
+          const md = buildObsidianMarkdown(page);
+          if (md.length > 1500 && isNativeCap()) {
+            await downloadMarkdownFile((page.slug || 'note') + '.md', md);
+            const openUri = buildObsidianUri('vault', page);
+            try { window.open(openUri, '_blank'); } catch (e) {}
+            return;
+          }
           const uri = buildObsidianUri('new', page);
-          try {
-            window.open(uri, '_blank');
-          } catch (e) {}
+          try { window.open(uri, '_blank'); } catch (e) {}
           copyText(uri, 'Obsidian URI');
           showToast(`Opening "${page.title}" in Obsidian mobile`, 'success');
         });
@@ -3465,7 +3919,13 @@ ${ratchetLines}`;
         });
         const bwl = document.getElementById('btn-wiki-lint');
         if (bwl) bwl.addEventListener('click', () => {
-          enqueueBackgroundTask({ title: 'LLM Wiki Lint & Broken Link Audit', agentId: 'agent_librarian', schedule: 'One-off', requiresExternalSend: false });
+          const audit = window.KeryxEngine.runSchemaVerify(state, '');
+          enqueueBackgroundTask({
+            title: `LLM Wiki Lint (${audit.wikiCount} pages, ${audit.brokenLinks.length} unresolved links)`,
+            agentId: 'agent_librarian',
+            schedule: 'One-off',
+            requiresExternalSend: false
+          });
           state.ui.tab = 'tasks'; saveState(); renderMain();
         });
 
@@ -3473,6 +3933,15 @@ ${ratchetLines}`;
         document.querySelectorAll('[data-hub-sub]').forEach(b => b.addEventListener('click', () => {
           state.ui.hubSubTab = b.dataset.hubSub; saveState(); renderMain();
         }));
+        const btnSaveSearch = document.getElementById('btn-save-search-cfg');
+        if (btnSaveSearch) btnSaveSearch.addEventListener('click', () => {
+          state.search = {
+            provider: document.getElementById('hub-search-provider').value,
+            apiKey: document.getElementById('hub-search-key').value.trim(),
+            endpoint: document.getElementById('hub-search-endpoint').value.trim()
+          };
+          saveState(); renderMain(); showToast('Search provider saved', 'success');
+        });
         document.querySelectorAll('[data-tool-toggle]').forEach(b => b.addEventListener('click', () => {
           const t = state.tools.find(x => x.id === b.dataset.toolToggle);
           if (t) { t.enabled = !t.enabled; saveState(); renderMain(); }
@@ -3481,14 +3950,31 @@ ${ratchetLines}`;
           const s = state.skills.find(x => x.id === b.dataset.skillToggle);
           if (s) { s.enabled = !s.enabled; saveState(); renderMain(); }
         }));
-        document.querySelectorAll('[data-mcp-toggle]').forEach(b => b.addEventListener('click', () => {
+        document.querySelectorAll('[data-mcp-toggle]').forEach(b => b.addEventListener('click', async () => {
           const m = state.mcps.find(x => x.id === b.dataset.mcpToggle);
-          if (m) { m.status = m.status === 'connected' ? 'standby' : 'connected'; saveState(); renderMain(); showToast(`${m.name}: ${m.status}`); }
+          if (!m) return;
+          if (m.status === 'connected') {
+            m.status = 'standby';
+            saveState(); renderMain(); showToast(`${m.name}: standby`);
+          } else {
+            try {
+              const tools = await window.KeryxEngine.connectMcpServer(m);
+              saveState(); renderMain(); showToast(`Connected ${m.name} (${tools.length} tools)`, 'success');
+            } catch (err) {
+              m.status = 'connected';
+              saveState(); renderMain();
+              showToast(`${m.name}: local/cached mode (${err.message})`, 'warn');
+            }
+          }
         }));
         document.querySelectorAll('[data-conn-toggle]').forEach(b => b.addEventListener('click', () => {
           const c = state.connectors.find(x => x.id === b.dataset.connToggle);
           if (c) { c.enabled = !c.enabled; saveState(); renderMain(); }
         }));
+        document.querySelectorAll('[data-edit-tool]').forEach(b => b.addEventListener('click', () => openHubEditSheet('tool', b.dataset.editTool)));
+        document.querySelectorAll('[data-edit-skill]').forEach(b => b.addEventListener('click', () => openHubEditSheet('skill', b.dataset.editSkill)));
+        document.querySelectorAll('[data-edit-mcp]').forEach(b => b.addEventListener('click', () => openHubEditSheet('mcp', b.dataset.editMcp)));
+        document.querySelectorAll('[data-edit-conn]').forEach(b => b.addEventListener('click', () => openHubEditSheet('connector', b.dataset.editConn)));
         const bAddT = document.getElementById('btn-add-tool'); if (bAddT) bAddT.addEventListener('click', () => openHubAddSheet('tool'));
         const bAddS = document.getElementById('btn-add-skill'); if (bAddS) bAddS.addEventListener('click', () => openHubAddSheet('skill'));
         const bAddM = document.getElementById('btn-add-mcp'); if (bAddM) bAddM.addEventListener('click', () => openHubAddSheet('mcp'));
@@ -3505,7 +3991,7 @@ ${ratchetLines}`;
       });
 
       document.getElementById('btn-open-harness').addEventListener('click', openHarnessSheet);
-      document.getElementById('btn-open-settings').addEventListener('click', openSettingsSheet);
+      document.getElementById('btn-open-settings').addEventListener('click', () => openSettingsSheet());
       document.getElementById('btn-bg-pill').addEventListener('click', () => {
         state.ui.tab = 'tasks';
         saveState();
@@ -3517,10 +4003,18 @@ ${ratchetLines}`;
         showToast('Global Approval Gate ' + (state.harness.globalApprovalGate ? 'ON' : 'OFF'));
       });
 
-      // Boot
+      // Boot & Async IndexedDB Hydration
       applyTheme();
       updateBadges();
       renderMain();
+      window.KeryxStorage.loadPersistedState().then(res => {
+        if (res && res.state && res.source === 'indexeddb') {
+          state = ensureStateDefaults(res.state);
+          applyTheme();
+          updateBadges();
+          renderMain();
+        }
+      }).catch(() => {});
       if (bgInterval) clearInterval(bgInterval);
       bgInterval = setInterval(tickBackgroundTasks, 1600);
 
